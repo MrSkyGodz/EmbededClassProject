@@ -1,0 +1,11 @@
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:15:27:DrvGpio_GetContext	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:25:26:DrvGpio_EnableClock	12
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:90:16:DrvGpio_ModeUsesInterrupt	4
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:97:26:DrvGpio_InitInterrupt	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:111:19:DrvGpio_Open	6
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:147:19:DrvGpio_Close	4
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:168:15:DrvGpio_Read	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:180:19:DrvGpio_Write	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:193:19:DrvGpio_Toggle	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:206:19:DrvGpio_Ioctl	9
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_gpio/src/drv_gpio.c:254:19:DrvGpio_IrqHandler	9

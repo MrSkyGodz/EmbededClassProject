@@ -1,0 +1,4 @@
+../Core/Src/pwm.c:40:19:PWM_InitWithParams	24	static
+../Core/Src/pwm.c:61:6:PWM_Init	8	static
+../Core/Src/pwm.c:69:19:PWM_SetDuty	40	static
+../Core/Src/pwm.c:81:19:PWM_SetLedRedDuty	16	static

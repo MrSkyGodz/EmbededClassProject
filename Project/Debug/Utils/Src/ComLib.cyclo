@@ -1,0 +1,3 @@
+../Utils/Src/ComLib.cpp:3:1:ComLib::ComLib(IComLib&)	1
+../Utils/Src/ComLib.cpp:8:6:bool ComLib::Write(const uint8_t*, size_t)	1
+../Utils/Src/ComLib.cpp:13:8:size_t ComLib::Read(uint8_t*, size_t)	1

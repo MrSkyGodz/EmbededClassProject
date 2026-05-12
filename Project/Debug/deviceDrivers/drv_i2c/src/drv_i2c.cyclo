@@ -1,0 +1,13 @@
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:15:26:DrvI2c_GetContext	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:27:26:DrvI2c_ConfigClockSource	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:61:26:DrvI2c_EnableClock	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:89:13:DrvI2c_DisableClock	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:111:26:DrvI2c_PrepareBusPin	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:126:26:DrvI2c_InitPins	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:146:26:DrvI2c_InitOwnedHandle	9
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:202:19:DrvI2c_Open	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:230:26:DrvI2c_CloseInternal	4
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:251:19:DrvI2c_Close	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:263:20:DrvI2c_GetHandle	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:275:19:DrvI2c_MemRead	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_i2c/src/drv_i2c.c:300:19:DrvI2c_MemWrite	5

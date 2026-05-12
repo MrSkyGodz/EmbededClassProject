@@ -1,0 +1,19 @@
+../Utils/Inc/OnlineParser.hpp:26:13:OnlineParser::~OnlineParser()	16	static
+../Utils/Inc/OnlineParser.hpp:26:13:virtual OnlineParser::~OnlineParser()	16	static
+../App/Inc/ParserImp.h:12:2:ParserImp::ParserImp()	16	static
+../App/Inc/ParserImp.h:18:10:virtual bool ParserImp::checkHeader(size_t, uint8_t) const	24	static
+../App/Inc/ParserImp.h:29:7:virtual bool ParserImp::checkCrc(const uint8_t*, uint8_t, uint8_t) const	32	static
+../App/Inc/ParserImp.h:40:7:virtual void ParserImp::onFrameReceived(const uint8_t*, uint8_t)	40	static
+../App/Src/Application.cpp:25:17:void DebugUartDataCallback(DrvUart_Event_t, const uint8_t*, size_t, void*)	32	static
+../App/Src/Application.cpp:40:17:void ButtonInterruptCallback(uint32_t, void*)	24	static
+../App/Src/Application.cpp:72:6:void Initialize()	8	static
+../App/Src/Application.cpp:95:6:void Loop()	24	static,ignoring_inline_asm
+../App/Src/Application.cpp:119:6:bool ReadOneSensorSample(BNO055_Sensors_t*)	16	static
+../App/Src/Application.cpp:134:6:void PublishSensorSample(const BNO055_Sensors_t*)	56	static
+../App/Src/Application.cpp:151:16:int _write(int, char*, int)	24	static
+../App/Inc/ParserImp.h:9:7:ParserImp::~ParserImp()	16	static
+../App/Inc/ParserImp.h:9:7:virtual ParserImp::~ParserImp()	16	static
+../App/Src/Application.cpp:161:1:void __static_initialization_and_destruction_0()	8	static
+../App/Src/Application.cpp:161:1:void __static_initialization_and_destruction_1()	8	static
+../App/Src/Application.cpp:161:1:cpp)	8	static
+../App/Src/Application.cpp:161:1:cpp)	8	static

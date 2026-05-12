@@ -1,0 +1,4 @@
+../Core/Src/pwm.c:40:19:PWM_InitWithParams	3
+../Core/Src/pwm.c:61:6:PWM_Init	2
+../Core/Src/pwm.c:69:19:PWM_SetDuty	1
+../Core/Src/pwm.c:81:19:PWM_SetLedRedDuty	1

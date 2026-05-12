@@ -1,0 +1,16 @@
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:14:28:DrvMotor_GetContext	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:24:17:DrvMotor_Clamp	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:39:17:DrvMotor_MapRange	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:57:17:DrvMotor_MapFloatRange	4
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:82:17:DrvMotor_MapSignedRange	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:114:16:DrvMotor_IsApb2Timer	6
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:123:17:DrvMotor_GetTimerClockHz	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:147:13:DrvMotor_ApplyHardwareDefaults	4
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:165:13:DrvMotor_ApplyInitDefaults	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:188:26:DrvMotor_BuildPwmOpenParams	12
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:246:19:DrvMotor_Open	8
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:294:19:DrvMotor_Close	4
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:318:19:DrvMotor_SetPulseUs	4
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:343:19:DrvMotor_SetAngle	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:374:19:DrvMotor_SetDuty	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_motor/src/drv_motor.c:400:19:DrvMotor_SetSpeed	6
