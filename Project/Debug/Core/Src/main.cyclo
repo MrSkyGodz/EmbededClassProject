@@ -1,0 +1,5 @@
+../Core/Src/main.cpp:77:5:int main()	1
+../Core/Src/main.cpp:137:6:void SystemClock_Config()	4
+../Core/Src/main.cpp:197:6:void MPU_Config()	1
+../Core/Src/main.cpp:232:6:void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef*)	2
+../Core/Src/main.cpp:250:6:void Error_Handler()	1

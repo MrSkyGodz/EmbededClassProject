@@ -1,0 +1,16 @@
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:28:26:DrvDma_GetContext	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:38:28:DrvDma_GetController	17
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:59:19:DrvDma_EnableInterrupt	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:82:19:DrvDma_DisableInterrupt	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:101:26:DrvDma_EnableClock	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:119:13:DrvDma_DisableClock	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:137:26:DrvDma_InitInterrupt	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:151:26:DrvDma_InitOwnedHandle	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:184:19:DrvDma_Open	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:212:26:DrvDma_CloseInternal	4
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:233:19:DrvDma_Close	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:245:20:DrvDma_GetHandle	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:257:19:DrvDma_Start	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:272:19:DrvDma_StartIT	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:292:19:DrvDma_Abort	2
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_dma/src/drv_dma.c:304:19:DrvDma_IrqHandler	7

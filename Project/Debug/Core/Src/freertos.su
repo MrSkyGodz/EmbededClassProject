@@ -1,0 +1,6 @@
+../Core/Src/freertos.c:98:6:MX_FREERTOS_Init	8	static
+../Core/Src/freertos.c:146:6:StartDefaultTask	104	static
+../Core/Src/freertos.c:172:6:StartSensorTask	104	static
+../Core/Src/freertos.c:189:6:SensorTimerCallback	16	static
+../Core/Src/freertos.c:199:13:QueueSensorSample	104	static
+../Core/Src/freertos.c:221:13:TryDequeueSensorSample	16	static

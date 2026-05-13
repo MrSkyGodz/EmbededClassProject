@@ -1,0 +1,3 @@
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_bno055/src/bno055_hal.c:4:19:Bno055_HardwareInit	24	static
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_bno055/src/bno055_hal.c:35:19:Bno055_ReadData	40	static
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_bno055/src/bno055_hal.c:48:19:Bno055_WriteData	40	static

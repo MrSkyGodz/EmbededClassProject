@@ -1,0 +1,9 @@
+../Core/Src/motor.c:59:6:MOTOR_Init	3
+../Core/Src/motor.c:71:19:MOTOR_SetMotor1Duty	1
+../Core/Src/motor.c:83:19:MOTOR_SetMotor2Duty	1
+../Core/Src/motor.c:95:19:MOTOR_SetMotor1PulseUs	1
+../Core/Src/motor.c:106:19:MOTOR_SetMotor2PulseUs	1
+../Core/Src/motor.c:117:19:MOTOR_SetMotor1Angle	1
+../Core/Src/motor.c:128:19:MOTOR_SetMotor2Angle	1
+../Core/Src/motor.c:139:19:MOTOR_SetMotor1Speed	1
+../Core/Src/motor.c:151:19:MOTOR_SetMotor2Speed	1

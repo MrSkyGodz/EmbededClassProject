@@ -1,0 +1,34 @@
+../Utils/Inc/CircularBuffer.hpp:12:14:CircularBuffer::CircularBuffer(size_t)	3
+../Utils/Inc/CircularBuffer.hpp:24:10:bool CircularBuffer::push(uint8_t)	2
+../Utils/Inc/CircularBuffer.hpp:37:10:bool CircularBuffer::pushOverwriteOldest(uint8_t)	2
+../Utils/Inc/CircularBuffer.hpp:48:10:bool CircularBuffer::pop(uint8_t&)	2
+../Utils/Inc/CircularBuffer.hpp:61:10:bool CircularBuffer::peek(size_t, uint8_t&) const	2
+../Utils/Inc/CircularBuffer.hpp:72:10:bool CircularBuffer::discard(size_t)	2
+../Utils/Inc/CircularBuffer.hpp:84:10:void CircularBuffer::clear()	1
+../Utils/Inc/CircularBuffer.hpp:91:12:size_t CircularBuffer::available() const	1
+../Utils/Inc/CircularBuffer.hpp:96:12:size_t CircularBuffer::capacity() const	1
+../Utils/Inc/IComLib.h:6:7:constexpr IComLib::IComLib()	1
+../Utils/Inc/IComLib.h:9:10:IComLib::~IComLib()	1
+../Utils/Inc/IComLib.h:9:10:virtual IComLib::~IComLib()	1
+../Core/Src/ComImp/UartComImp.cpp:8:1:UartComImp::UartComImp()	1
+../Core/Inc/ComImp/UartComImp.h:14:7:UartComImp::~UartComImp()	1
+../Core/Inc/ComImp/UartComImp.h:14:7:virtual UartComImp::~UartComImp()	1
+../Core/Src/ComImp/UartComImp.cpp:25:1:UartComImp::UartComImp(UART_HandleTypeDef&)	1
+../Core/Src/ComImp/UartComImp.cpp:31:6:void UartComImp::Reinit(UART_HandleTypeDef&, UartMode, UartMode)	7
+../Core/Src/ComImp/UartComImp.cpp:62:6:void UartComImp::RegisterRxInterruptCallback(RxInterruptCallback, size_t)	6
+../Core/Src/ComImp/UartComImp.cpp:86:6:virtual bool UartComImp::Write(const uint8_t*, size_t)	12
+../Core/Src/ComImp/UartComImp.cpp:145:8:virtual size_t UartComImp::Read(uint8_t*, size_t)	12
+../Core/Src/ComImp/UartComImp.cpp:192:8:size_t UartComImp::ResolveDefaultRxChunkLength() const	2
+../Core/Src/ComImp/UartComImp.cpp:197:8:size_t UartComImp::ResolveDefaultTxChunkLength() const	2
+../Core/Src/ComImp/UartComImp.cpp:202:6:static void UartComImp::RegisterInstance(UartComImp*)	5
+../Core/Src/ComImp/UartComImp.cpp:222:13:static UartComImp* UartComImp::FindByHandle(UART_HandleTypeDef*)	4
+../Core/Src/ComImp/UartComImp.cpp:235:6:static void UartComImp::DispatchRxCompleteIRQ(UART_HandleTypeDef*)	3
+../Core/Src/ComImp/UartComImp.cpp:244:6:static void UartComImp::DispatchRxEventIRQ(UART_HandleTypeDef*, uint16_t)	3
+../Core/Src/ComImp/UartComImp.cpp:253:6:static void UartComImp::DispatchTxCompleteIRQ(UART_HandleTypeDef*)	3
+../Core/Src/ComImp/UartComImp.cpp:262:6:void UartComImp::ArmAsyncReceive()	8
+../Core/Src/ComImp/UartComImp.cpp:293:6:void UartComImp::OnAsyncReceive(uint16_t)	3
+../Core/Src/ComImp/UartComImp.cpp:308:6:bool UartComImp::StartAsyncTransmit()	12
+../Core/Src/ComImp/UartComImp.cpp:368:6:void UartComImp::OnAsyncTransmitComplete()	1
+../Core/Src/ComImp/UartComImp.cpp:380:17:void HAL_UART_RxCpltCallback(UART_HandleTypeDef*)	1
+../Core/Src/ComImp/UartComImp.cpp:385:17:void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef*, uint16_t)	1
+../Core/Src/ComImp/UartComImp.cpp:390:17:void HAL_UART_TxCpltCallback(UART_HandleTypeDef*)	1
