@@ -9,6 +9,7 @@
 #include <cctype>
 #include <cerrno>
 #include <cstring>
+#include <cstdlib>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -52,6 +53,61 @@ std::string jsonEscape(const std::string& value)
 std::string boolJson(bool value)
 {
     return value ? "true" : "false";
+}
+
+std::string pathOnly(const std::string& path)
+{
+    const size_t queryPos = path.find('?');
+    if (queryPos == std::string::npos)
+    {
+        return path;
+    }
+
+    return path.substr(0U, queryPos);
+}
+
+bool querySizeT(const std::string& path, const std::string& key, size_t& value)
+{
+    const size_t queryPos = path.find('?');
+    if (queryPos == std::string::npos)
+    {
+        return false;
+    }
+
+    const std::string token = key + "=";
+    size_t pos = path.find(token, queryPos + 1U);
+    if (pos == std::string::npos)
+    {
+        return false;
+    }
+
+    pos += token.size();
+
+    char* endPtr = nullptr;
+    const unsigned long parsed = std::strtoul(path.c_str() + pos, &endPtr, 10);
+
+    if (endPtr == path.c_str() + pos)
+    {
+        return false;
+    }
+
+    value = static_cast<size_t>(parsed);
+    return true;
+}
+
+size_t clampSizeT(size_t value, size_t minValue, size_t maxValue)
+{
+    if (value < minValue)
+    {
+        return minValue;
+    }
+
+    if (value > maxValue)
+    {
+        return maxValue;
+    }
+
+    return value;
 }
 
 bool extractString(const std::string& body, const std::string& key, std::string& value)
@@ -130,7 +186,8 @@ bool extractNumber(const std::string& body, const std::string& key, double& valu
         ++pos;
     }
     size_t end = pos;
-    while (end < body.size() && (std::isdigit(static_cast<unsigned char>(body[end])) || body[end] == '.' || body[end] == '-'))
+    while (end < body.size() &&
+           (std::isdigit(static_cast<unsigned char>(body[end])) || body[end] == '.' || body[end] == '-'))
     {
         ++end;
     }
@@ -215,6 +272,26 @@ std::string responseText(int status, const std::string& body)
     out << body;
     return out.str();
 }
+
+bool sendAll(int socketFd, const std::string& text)
+{
+    const char* data = text.c_str();
+    size_t remaining = text.size();
+
+    while (remaining > 0U)
+    {
+        const int sent = send(socketFd, data, static_cast<int>(remaining), 0);
+        if (sent <= 0)
+        {
+            return false;
+        }
+
+        data += sent;
+        remaining -= static_cast<size_t>(sent);
+    }
+
+    return true;
+}
 }
 
 namespace api
@@ -289,28 +366,7 @@ bool ApiServer::run(std::string& error)
             continue;
         }
 
-        char buffer[16384] = {};
-        const int received = static_cast<int>(recv(clientFd, buffer, sizeof(buffer) - 1U, 0));
-        if (received <= 0)
-        {
-            closeSocket(clientFd);
-            continue;
-        }
-
-        std::string raw(buffer, static_cast<size_t>(received));
-        HttpRequest request;
-        std::istringstream input(raw);
-        input >> request.method >> request.path;
-        const size_t bodyPos = raw.find("\r\n\r\n");
-        if (bodyPos != std::string::npos)
-        {
-            request.body = raw.substr(bodyPos + 4U);
-        }
-
-        const auto response = route(request);
-        const auto text = responseText(response.status, response.body);
-        send(clientFd, text.c_str(), static_cast<int>(text.size()), 0);
-        closeSocket(clientFd);
+        std::thread(&ApiServer::handleClient, this, clientFd).detach();
     }
 
     closeSocket(serverFd);
@@ -332,69 +388,220 @@ void ApiServer::stop()
     }
 }
 
+
+void ApiServer::handleClient(int clientFd)
+{
+    char buffer[16384] = {};
+    const int received = static_cast<int>(recv(clientFd, buffer, sizeof(buffer) - 1U, 0));
+    if (received <= 0)
+    {
+        closeSocket(clientFd);
+        return;
+    }
+
+    std::string raw(buffer, static_cast<size_t>(received));
+    HttpRequest request;
+    std::istringstream input(raw);
+    input >> request.method >> request.path;
+
+    const size_t bodyPos = raw.find("\r\n\r\n");
+    if (bodyPos != std::string::npos)
+    {
+        request.body = raw.substr(bodyPos + 4U);
+    }
+
+    const std::string cleanPath = pathOnly(request.path);
+
+    if (request.method == "GET" && cleanPath == "/api/events")
+    {
+        serveEventStream(clientFd);
+        closeSocket(clientFd);
+        return;
+    }
+
+    const auto response = route(request);
+    const auto text = responseText(response.status, response.body);
+    sendAll(clientFd, text);
+    closeSocket(clientFd);
+}
+
+void ApiServer::serveEventStream(int clientFd)
+{
+    std::ostringstream header;
+    header << "HTTP/1.1 200 OK\r\n";
+    header << "Content-Type: text/event-stream\r\n";
+    header << "Cache-Control: no-cache\r\n";
+    header << "Connection: keep-alive\r\n";
+    header << "Access-Control-Allow-Origin: *\r\n";
+    header << "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
+    header << "Access-Control-Allow-Headers: Content-Type\r\n\r\n";
+
+    if (!sendAll(clientFd, header.str()))
+    {
+        return;
+    }
+
+    bool hasLastParsedIndex = false;
+    size_t lastParsedIndex = 0U;
+    size_t lastLogCount = 0U;
+    unsigned heartbeatCounter = 0U;
+
+    while (serverRunning_)
+    {
+        const auto parsedMessages = parsedRecorder_.snapshot(100U);
+
+        for (const auto& message : parsedMessages)
+        {
+            if (!hasLastParsedIndex || message.index > lastParsedIndex)
+            {
+                std::ostringstream data;
+                data << "event: parsed\n";
+                data << "data: {";
+                data << "\"index\":" << message.index
+                     << ",\"timestampMs\":" << message.timestampMs
+                     << ",\"timetagMs\":" << message.timetagMs
+                     << ",\"counter\":" << static_cast<unsigned>(message.counter)
+                     << ",\"icdType\":" << static_cast<unsigned>(message.icdType)
+                     << ",\"type\":\"" << jsonEscape(message.type) << "\",\"fields\":{";
+
+                size_t fieldIndex = 0U;
+                for (const auto& field : message.values)
+                {
+                    if (fieldIndex++ != 0U)
+                    {
+                        data << ',';
+                    }
+
+                    data << "\"" << jsonEscape(field.first) << "\":" << field.second;
+                }
+
+                data << "}}\n\n";
+
+                if (!sendAll(clientFd, data.str()))
+                {
+                    return;
+                }
+
+                lastParsedIndex = message.index;
+                hasLastParsedIndex = true;
+            }
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(logMutex_);
+
+            if (logs_.size() < lastLogCount)
+            {
+                lastLogCount = 0U;
+            }
+
+            for (size_t i = lastLogCount; i < logs_.size(); ++i)
+            {
+                std::ostringstream data;
+                data << "event: log\n";
+                data << "data: {\"message\":\"" << jsonEscape(logs_[i]) << "\"}\n\n";
+
+                if (!sendAll(clientFd, data.str()))
+                {
+                    return;
+                }
+            }
+
+            lastLogCount = logs_.size();
+        }
+
+        if (++heartbeatCounter >= 25U)
+        {
+            heartbeatCounter = 0U;
+            if (!sendAll(clientFd, ": heartbeat\n\n"))
+            {
+                return;
+            }
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+}
+
 ApiServer::HttpResponse ApiServer::route(const HttpRequest& request)
 {
+    const std::string cleanPath = pathOnly(request.path);
+
     if (request.method == "OPTIONS")
     {
         return {200, "{\"ok\":true}"};
     }
-    if (request.method == "GET" && request.path == "/api/health")
+    if (request.method == "GET" && cleanPath == "/api/health")
     {
         return {200, healthJson()};
     }
-    if (request.method == "GET" && request.path == "/api/messages")
+    if (request.method == "GET" && cleanPath == "/api/messages")
     {
         return {200, messagesJson()};
     }
-    if (request.method == "POST" && request.path == "/api/ports/open")
+    if (request.method == "POST" && cleanPath == "/api/ports/open")
     {
         return openPort(request.body);
     }
-    if (request.method == "POST" && request.path == "/api/ports/close")
+    if (request.method == "POST" && cleanPath == "/api/ports/close")
     {
         return closePort();
     }
-    if (request.method == "GET" && request.path == "/api/ports/status")
+    if (request.method == "GET" && cleanPath == "/api/ports/status")
     {
         return {200, portStatusJson()};
     }
-    if (request.method == "POST" && request.path == "/api/messages/send")
+    if (request.method == "POST" && cleanPath == "/api/messages/send")
     {
         return sendMessage(request.body);
     }
-    if (request.method == "GET" && request.path == "/api/received")
+    if (request.method == "GET" && cleanPath == "/api/received")
     {
-        return {200, receivedJson()};
+        size_t entryLimit = 0U;
+        size_t parsedLimit = 60U;
+
+        querySizeT(request.path, "entryLimit", entryLimit);
+        querySizeT(request.path, "parsedLimit", parsedLimit);
+
+        entryLimit = clampSizeT(entryLimit, 0U, 200U);
+        parsedLimit = clampSizeT(parsedLimit, 0U, 100U);
+
+        return {200, receivedJson(entryLimit, parsedLimit)};
     }
-    if (request.method == "POST" && request.path == "/api/received/clear")
+    if (request.method == "POST" && cleanPath == "/api/received/clear")
     {
         recorder_.clear();
         parsedRecorder_.clear();
         addLog("Received buffer cleared.");
         return {200, "{\"ok\":true}"};
     }
-    if (request.method == "POST" && request.path == "/api/received/export")
+    if (request.method == "POST" && cleanPath == "/api/received/export")
     {
         return exportReceived(request.body);
     }
-    if (request.method == "GET" && request.path == "/api/logs")
+    if (request.method == "GET" && cleanPath == "/api/logs")
     {
-        return {200, logsJson()};
+        size_t limit = 80U;
+
+        querySizeT(request.path, "limit", limit);
+        limit = clampSizeT(limit, 0U, 200U);
+
+        return {200, logsJson(limit)};
     }
-    if (request.method == "GET" && request.path == "/api/tests")
+    if (request.method == "GET" && cleanPath == "/api/tests")
     {
         return {200, testsJson()};
     }
-    if (request.method == "POST" && request.path == "/api/tests/run")
+    if (request.method == "POST" && cleanPath == "/api/tests/run")
     {
         return runTest(request.body);
     }
-    if (request.method == "POST" && request.path == "/api/tests/stop")
+    if (request.method == "POST" && cleanPath == "/api/tests/stop")
     {
         const auto status = testRunner_.stop();
         return {200, "{\"ok\":true,\"state\":\"" + status.state + "\",\"message\":\"" + jsonEscape(status.message) + "\"}"};
     }
-    if (request.method == "GET" && request.path == "/api/tests/status")
+    if (request.method == "GET" && cleanPath == "/api/tests/status")
     {
         return {200, testStatusJson()};
     }
@@ -610,12 +817,16 @@ std::string ApiServer::portStatusJson() const
     return out.str();
 }
 
-std::string ApiServer::receivedJson() const
+std::string ApiServer::receivedJson(size_t entryLimit, size_t parsedLimit) const
 {
-    const auto entries = recorder_.snapshot(200U);
-    const auto parsedMessages = parsedRecorder_.snapshot(100U);
+    const auto entries = recorder_.snapshot(entryLimit);
+    const auto parsedMessages = parsedRecorder_.snapshot(parsedLimit);
+
     std::ostringstream out;
-    out << "{\"totalReceived\":" << recorder_.totalReceived() << ",\"buffered\":" << recorder_.size() << ",\"entries\":[";
+    out << "{\"totalReceived\":" << recorder_.totalReceived()
+        << ",\"buffered\":" << recorder_.size()
+        << ",\"entries\":[";
+
     for (size_t i = 0U; i < entries.size(); ++i)
     {
         const auto& entry = entries[i];
@@ -623,14 +834,22 @@ std::string ApiServer::receivedJson() const
         {
             out << ',';
         }
+
         const char ascii = (entry.value >= 32U && entry.value <= 126U) ? static_cast<char>(entry.value) : '.';
+
         out << "{\"index\":" << entry.index
             << ",\"timestampMs\":" << entry.timestampMs
             << ",\"hex\":\"";
-        out << std::uppercase << std::hex << std::setfill('0') << std::setw(2) << static_cast<unsigned>(entry.value);
+
+        out << std::uppercase << std::hex << std::setfill('0') << std::setw(2)
+            << static_cast<unsigned>(entry.value);
+
         out << std::dec << "\",\"ascii\":\"" << ascii << "\"}";
     }
-    out << "],\"parsedTotal\":" << parsedRecorder_.totalParsed() << ",\"parsedMessages\":[";
+
+    out << "],\"parsedTotal\":" << parsedRecorder_.totalParsed()
+        << ",\"parsedMessages\":[";
+
     for (size_t i = 0U; i < parsedMessages.size(); ++i)
     {
         const auto& message = parsedMessages[i];
@@ -638,12 +857,14 @@ std::string ApiServer::receivedJson() const
         {
             out << ',';
         }
+
         out << "{\"index\":" << message.index
             << ",\"timestampMs\":" << message.timestampMs
             << ",\"timetagMs\":" << message.timetagMs
             << ",\"counter\":" << static_cast<unsigned>(message.counter)
             << ",\"icdType\":" << static_cast<unsigned>(message.icdType)
             << ",\"type\":\"" << jsonEscape(message.type) << "\",\"fields\":{";
+
         size_t fieldIndex = 0U;
         for (const auto& field : message.values)
         {
@@ -653,25 +874,34 @@ std::string ApiServer::receivedJson() const
             }
             out << "\"" << jsonEscape(field.first) << "\":" << field.second;
         }
+
         out << "}}";
     }
+
     out << "]}";
     return out.str();
 }
 
-std::string ApiServer::logsJson() const
+std::string ApiServer::logsJson(size_t limit) const
 {
     std::lock_guard<std::mutex> lock(logMutex_);
+
+    const size_t logCount = logs_.size();
+    const size_t startIndex = logCount > limit ? logCount - limit : 0U;
+
     std::ostringstream out;
     out << "{\"logs\":[";
-    for (size_t i = 0U; i < logs_.size(); ++i)
+
+    for (size_t i = startIndex; i < logCount; ++i)
     {
-        if (i != 0U)
+        if (i != startIndex)
         {
             out << ',';
         }
+
         out << '"' << jsonEscape(logs_[i]) << '"';
     }
+
     out << "]}";
     return out.str();
 }

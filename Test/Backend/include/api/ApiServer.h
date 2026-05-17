@@ -9,6 +9,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -40,6 +41,9 @@ private:
         std::string body;
     };
 
+    void handleClient(int clientFd);
+    void serveEventStream(int clientFd);
+
     HttpResponse route(const HttpRequest& request);
     HttpResponse openPort(const std::string& body);
     HttpResponse closePort();
@@ -50,8 +54,8 @@ private:
     std::string healthJson() const;
     std::string messagesJson() const;
     std::string portStatusJson() const;
-    std::string receivedJson() const;
-    std::string logsJson() const;
+    std::string receivedJson(size_t entryLimit, size_t parsedLimit) const;
+    std::string logsJson(size_t limit) const;
     std::string testsJson() const;
     std::string testStatusJson() const;
 
