@@ -7,13 +7,14 @@ import {
   type PortStatus,
   type ReceivedResponse,
   type TestInfo,
+  type TestSource,
   type TestStatus
 } from "./api/client";
 
 import { connectionView, readConnectionForm } from "./views/connectionView";
 import { messageView, readMessageForm } from "./views/messageView";
 import { receiveView } from "./views/receiveView";
-import { readTestForm, testView } from "./views/testView";
+import { readTestRunForm, testView, type TestCardsState } from "./views/testView";
 import "./styles.css";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -30,6 +31,13 @@ interface AppState {
   logs: string[];
   notice: string;
   selectedMessageType: string;
+  selectedTestIds: string[];
+  expandedTestParamsById: Record<string, boolean>;
+  testParamsById: Record<string, Record<string, number>>;
+  testSourceById: Record<string, TestSource>;
+  testStatusesById: Record<string, TestStatus>;
+  batchRunning: boolean;
+  batchStopRequested: boolean;
 }
 
 const state: AppState = {
@@ -40,7 +48,14 @@ const state: AppState = {
   testStatus: null,
   logs: [],
   notice: "",
-  selectedMessageType: "pwm"
+  selectedMessageType: "pwm",
+  selectedTestIds: [],
+  expandedTestParamsById: {},
+  testParamsById: {},
+  testSourceById: {},
+  testStatusesById: {},
+  batchRunning: false,
+  batchStopRequested: false
 };
 
 let liveRefreshRunning = false;
@@ -88,6 +103,57 @@ function commandMessages(): MessageDescription[] {
   return state.messages.filter((message) => message.direction !== "telemetry");
 }
 
+function testCardsState(): TestCardsState {
+  return {
+    selectedIds: state.selectedTestIds,
+    expandedParamsById: state.expandedTestParamsById,
+    paramsById: state.testParamsById,
+    sourceById: state.testSourceById,
+    statusesById: state.testStatusesById
+  };
+}
+
+function defaultTestParams(test: TestInfo): Record<string, number> {
+  const params: Record<string, number> = {};
+  for (const parameter of test.parameters ?? []) {
+    params[parameter.name] = parameter.defaultValue;
+  }
+  return params;
+}
+
+function mergeTestMetadata(tests: TestInfo[]): void {
+  const ids = new Set(tests.map((test) => test.id));
+  state.selectedTestIds = state.selectedTestIds.filter((id) => ids.has(id));
+
+  if (state.selectedTestIds.length === 0) {
+    state.selectedTestIds = tests.map((test) => test.id);
+  }
+
+  for (const test of tests) {
+    state.testParamsById[test.id] = {
+      ...defaultTestParams(test),
+      ...(state.testParamsById[test.id] ?? {})
+    };
+    const sources = test.allowedSources?.length ? test.allowedSources : [test.source];
+    if (!sources.includes(state.testSourceById[test.id])) {
+      state.testSourceById[test.id] = test.source;
+    }
+  }
+
+  for (const id of Object.keys(state.testParamsById)) {
+    if (!ids.has(id)) delete state.testParamsById[id];
+  }
+  for (const id of Object.keys(state.expandedTestParamsById)) {
+    if (!ids.has(id)) delete state.expandedTestParamsById[id];
+  }
+  for (const id of Object.keys(state.testSourceById)) {
+    if (!ids.has(id)) delete state.testSourceById[id];
+  }
+  for (const id of Object.keys(state.testStatusesById)) {
+    if (!ids.has(id)) delete state.testStatusesById[id];
+  }
+}
+
 function renderConnectionPanel(): void {
   setPanelHtml("connectionPanel", connectionView(state.status));
   bindConnectionEvents();
@@ -99,7 +165,7 @@ function renderMessagePanel(): void {
 }
 
 function renderTestPanel(): void {
-  setPanelHtml("testPanel", testView(state.tests, state.testStatus));
+  setPanelHtml("testPanel", testView(state.tests, state.testStatus, testCardsState()));
   bindTestEvents();
 }
 
@@ -145,6 +211,12 @@ async function loadMessages(): Promise<void> {
   }
 }
 
+async function loadTests(): Promise<void> {
+  const tests = await apiClient.tests();
+  state.tests = tests.tests;
+  mergeTestMetadata(state.tests);
+}
+
 async function refreshConnectionOnly(): Promise<void> {
   state.status = await apiClient.portStatus();
   renderConnectionPanel();
@@ -152,6 +224,9 @@ async function refreshConnectionOnly(): Promise<void> {
 
 async function refreshTestStatusOnly(): Promise<void> {
   state.testStatus = await apiClient.testStatus();
+  if (state.testStatus.id !== "none") {
+    state.testStatusesById[state.testStatus.id] = state.testStatus;
+  }
   renderTestPanel();
 }
 
@@ -200,8 +275,7 @@ async function loadInitial(): Promise<void> {
   }
 
   try {
-    const tests = await apiClient.tests();
-    state.tests = tests.tests;
+    await loadTests();
     connected = true;
   } catch {
     state.tests = [];
@@ -436,24 +510,151 @@ function bindReceivedEvents(): void {
   });
 }
 
-function bindTestEvents(): void {
-  document.querySelector("#runTest")?.addEventListener("click", async () => {
-    try {
-      const result = await apiClient.runTest(readTestForm());
-      await refreshTestStatusOnly();
-      setNotice(result.message);
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Run test failed");
+async function waitForTestFinish(testId: string): Promise<TestStatus> {
+  while (true) {
+    const status = await apiClient.testStatus();
+    state.testStatus = status;
+    if (status.id === testId) {
+      state.testStatusesById[testId] = status;
+      renderTestPanel();
+
+      if (status.state !== "running") {
+        return status;
+      }
     }
+
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+  }
+}
+
+async function runSingleTest(test: TestInfo): Promise<TestStatus> {
+  const result = await apiClient.runTest(readTestRunForm(test, state.testParamsById, state.testSourceById));
+  state.testStatus = {
+    id: result.id,
+    state: result.state,
+    passed: result.ok && result.state !== "running",
+    message: result.message
+  };
+  state.testStatusesById[test.id] = state.testStatus;
+  renderTestPanel();
+
+  if (result.state === "running") {
+    return waitForTestFinish(test.id);
+  }
+
+  return state.testStatus;
+}
+
+async function runSelectedTests(): Promise<void> {
+  if (state.batchRunning) return;
+
+  state.batchRunning = true;
+  state.batchStopRequested = false;
+  const selected = state.tests.filter((test) => state.selectedTestIds.includes(test.id));
+
+  try {
+    for (const test of selected) {
+      if (state.batchStopRequested) {
+        break;
+      }
+
+      setNotice(`Running ${test.name}`);
+      const status = await runSingleTest(test);
+      if (state.batchStopRequested || status.state === "stopped") {
+        break;
+      }
+
+    }
+    setNotice(state.batchStopRequested ? "Selected test run stopped" : "Selected tests finished");
+  } catch (error) {
+    setNotice(error instanceof Error ? error.message : "Selected test run failed");
+  } finally {
+    state.batchRunning = false;
+    state.batchStopRequested = false;
+    renderTestPanel();
+  }
+}
+
+function bindTestEvents(): void {
+  document.querySelectorAll<HTMLElement>("[data-test-card]").forEach((card) => {
+    card.addEventListener("click", (event) => {
+      if ((event.target as HTMLElement).closest("[data-test-control]")) {
+        return;
+      }
+
+      const testId = card.dataset.testCard;
+      if (!testId) return;
+
+      state.selectedTestIds = state.selectedTestIds.includes(testId)
+        ? state.selectedTestIds.filter((id) => id !== testId)
+        : [...state.selectedTestIds, testId];
+      renderTestPanel();
+    });
+  });
+
+  document.querySelectorAll<HTMLInputElement>("[data-test-param]").forEach((input) => {
+    input.addEventListener("input", () => {
+      const [testId, name] = (input.dataset.testParam ?? "").split(":");
+      if (!testId || !name) return;
+
+      state.testParamsById[testId] = {
+        ...(state.testParamsById[testId] ?? {}),
+        [name]: Number(input.value)
+      };
+    });
+  });
+
+  document.querySelectorAll<HTMLSelectElement>("[id^='testSource_']").forEach((select) => {
+    select.addEventListener("change", () => {
+      const testId = select.id.replace("testSource_", "");
+      state.testSourceById[testId] = select.value as TestSource;
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-toggle-params]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const testId = button.dataset.toggleParams;
+      if (!testId) return;
+
+      state.expandedTestParamsById[testId] = !state.expandedTestParamsById[testId];
+      renderTestPanel();
+    });
+  });
+
+  document.querySelectorAll<HTMLButtonElement>("[data-run-test]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const test = state.tests.find((item) => item.id === button.dataset.runTest);
+      if (!test) return;
+
+      await runSingleTest(test);
+    });
+  });
+
+  document.querySelector("#runSelectedTests")?.addEventListener("click", async () => {
+    await runSelectedTests();
   });
 
   document.querySelector("#stopTest")?.addEventListener("click", async () => {
     try {
+      state.batchStopRequested = true;
       const result = await apiClient.stopTest();
       await refreshTestStatusOnly();
+      if (result.id) {
+        state.testStatusesById[result.id] = result;
+      }
       setNotice(result.message);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Stop test failed");
+    }
+  });
+
+  document.querySelector("#reloadTests")?.addEventListener("click", async () => {
+    try {
+      await loadTests();
+      renderTestPanel();
+      setNotice(`Tests loaded from ${getApiBase()}`);
+    } catch (error) {
+      setNotice(error instanceof Error ? `Tests not loaded: ${error.message}` : "Tests not loaded");
     }
   });
 }
@@ -482,3 +683,10 @@ function updateConnectionStatusIndicators(): void {
 }
 
 loadInitial();
+window.setInterval(() => {
+  if (state.testStatus?.state === "running") {
+    refreshTestStatusOnly().catch(() => {
+      setNotice("Test status refresh failed");
+    });
+  }
+}, 1000);

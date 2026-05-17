@@ -15,9 +15,13 @@ SRCS := \
 	src/protocol/MessageRegistry.cpp \
 	src/recorder/ParsedMessageRecorder.cpp \
 	src/recorder/ReceiveRecorder.cpp \
+	src/tests/BuiltinTests.cpp \
+	src/tests/TestContext.cpp \
+	src/tests/TestRegistry.cpp \
 	src/tests/TestRunner.cpp \
 	src/transport/MockTransport.cpp \
 	src/transport/SerialTransport.cpp \
+	src/transport/TransportFactory.cpp \
 	../../Project/Utils/Src/OnlineParser.cpp
 
 ifeq ($(OS),Windows_NT)

@@ -1,5 +1,5 @@
 export type TransportMode = "mock" | "serial";
-export type TestSource = "mock" | "serial" | "received_snapshot" | "received_live";
+export type TestSource = "received_snapshot" | "received_live";
 
 export interface PortStatus {
   open: boolean;
@@ -54,6 +54,17 @@ export interface TestInfo {
   id: string;
   name: string;
   source: TestSource;
+  allowedSources?: TestSource[];
+  parameters?: TestParameter[];
+}
+
+export interface TestParameter {
+  name: string;
+  label: string;
+  type: string;
+  defaultValue: number;
+  min: number;
+  max: number;
 }
 
 export interface TestStatus {
@@ -174,14 +185,14 @@ export const apiClient = {
   tests: () =>
     request<{ tests: TestInfo[] }>("/api/tests"),
 
-  runTest: (payload: { testId: string; source: TestSource }) =>
-    request<{ ok: boolean; state: string; message: string }>("/api/tests/run", {
+  runTest: (payload: { testId: string; source: TestSource; params: Record<string, number> }) =>
+    request<{ ok: boolean; id: string; state: string; message: string }>("/api/tests/run", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
 
   stopTest: () =>
-    request<{ ok: boolean; state: string; message: string }>("/api/tests/stop", {
+    request<{ ok: boolean; id: string; state: string; message: string }>("/api/tests/stop", {
       method: "POST",
       body: "{}"
     }),

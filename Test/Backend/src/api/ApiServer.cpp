@@ -1,8 +1,7 @@
 #include "api/ApiServer.h"
 
 #include "protocol/Frame.h"
-#include "transport/MockTransport.h"
-#include "transport/SerialTransport.h"
+#include "transport/TransportFactory.h"
 
 #include <algorithm>
 #include <chrono>
@@ -200,28 +199,104 @@ bool extractNumber(const std::string& body, const std::string& key, double& valu
     return true;
 }
 
-std::map<std::string, double> extractPayloadValues(const std::string& body)
+std::string aliasForField(const std::string& fieldName)
+{
+    if (fieldName == "motor1AngleDeg")
+    {
+        return "motor1";
+    }
+    if (fieldName == "motor2AngleDeg")
+    {
+        return "motor2";
+    }
+    return "";
+}
+
+std::map<std::string, double> extractPayloadValues(const std::string& body, const protocol::MessageDescription& description)
 {
     std::map<std::string, double> values;
-    for (const std::string key : {"pwm", "motor1AngleDeg", "motor2AngleDeg", "motor1", "motor2"})
+    for (const auto& field : description.fields)
     {
         double value = 0.0;
-        if (extractNumber(body, key, value))
+        if (extractNumber(body, field.name, value))
         {
-            if (key == "motor1")
-            {
-                values["motor1AngleDeg"] = value;
-            }
-            else if (key == "motor2")
-            {
-                values["motor2AngleDeg"] = value;
-            }
-            else
-            {
-                values[key] = value;
-            }
+            values[field.name] = value;
+            continue;
+        }
+
+        const std::string alias = aliasForField(field.name);
+        if (!alias.empty() && extractNumber(body, alias, value))
+        {
+            values[field.name] = value;
         }
     }
+    return values;
+}
+
+std::map<std::string, double> extractObjectNumbers(const std::string& body, const std::string& objectKey)
+{
+    std::map<std::string, double> values;
+    const std::string token = "\"" + objectKey + "\"";
+    size_t pos = body.find(token);
+    if (pos == std::string::npos)
+    {
+        return values;
+    }
+
+    pos = body.find('{', pos + token.size());
+    if (pos == std::string::npos)
+    {
+        return values;
+    }
+
+    const size_t endObject = body.find('}', pos + 1U);
+    if (endObject == std::string::npos)
+    {
+        return values;
+    }
+
+    while (pos < endObject)
+    {
+        const size_t keyStart = body.find('"', pos + 1U);
+        if (keyStart == std::string::npos || keyStart >= endObject)
+        {
+            break;
+        }
+
+        const size_t keyEnd = body.find('"', keyStart + 1U);
+        if (keyEnd == std::string::npos || keyEnd >= endObject)
+        {
+            break;
+        }
+
+        const std::string key = body.substr(keyStart + 1U, keyEnd - keyStart - 1U);
+        const size_t colon = body.find(':', keyEnd + 1U);
+        if (colon == std::string::npos || colon >= endObject)
+        {
+            break;
+        }
+
+        size_t valueStart = colon + 1U;
+        while (valueStart < endObject && std::isspace(static_cast<unsigned char>(body[valueStart])))
+        {
+            ++valueStart;
+        }
+
+        size_t valueEnd = valueStart;
+        while (valueEnd < endObject &&
+               (std::isdigit(static_cast<unsigned char>(body[valueEnd])) || body[valueEnd] == '.' || body[valueEnd] == '-'))
+        {
+            ++valueEnd;
+        }
+
+        if (valueEnd > valueStart)
+        {
+            values[key] = std::stod(body.substr(valueStart, valueEnd - valueStart));
+        }
+
+        pos = valueEnd;
+    }
+
     return values;
 }
 
@@ -299,7 +374,7 @@ namespace api
 ApiServer::ApiServer(unsigned port)
     : port_(port),
       parser_(registry_, parsedRecorder_, [this](const std::string& error) { addLog(error); }),
-      testRunner_(registry_, recorder_),
+      testRunner_(registry_, recorder_, parsedRecorder_),
       startedAt_(std::chrono::steady_clock::now())
 {
 }
@@ -611,6 +686,8 @@ ApiServer::HttpResponse ApiServer::route(const HttpRequest& request)
 
 ApiServer::HttpResponse ApiServer::openPort(const std::string& body)
 {
+    testRunner_.stop();
+
     std::string mode = "mock";
     std::string requestedPort = "mock";
     double baud = 115200.0;
@@ -618,16 +695,9 @@ ApiServer::HttpResponse ApiServer::openPort(const std::string& body)
     extractString(body, "port", requestedPort);
     extractNumber(body, "baud", baud);
 
-    std::unique_ptr<transport::ITransport> nextTransport;
-    if (mode == "serial")
-    {
-        nextTransport = std::make_unique<transport::SerialTransport>();
-    }
-    else
-    {
-        mode = "mock";
-        nextTransport = std::make_unique<transport::MockTransport>();
-    }
+    auto transportResult = transport::createTransport(mode);
+    mode = transportResult.mode;
+    auto nextTransport = std::move(transportResult.transport);
 
     std::string error;
     if (!nextTransport->open(requestedPort, static_cast<unsigned>(baud), error))
@@ -651,6 +721,8 @@ ApiServer::HttpResponse ApiServer::openPort(const std::string& body)
 
 ApiServer::HttpResponse ApiServer::closePort()
 {
+    testRunner_.stop();
+
     stopReader();
     {
         std::lock_guard<std::mutex> lock(transportMutex_);
@@ -679,7 +751,13 @@ ApiServer::HttpResponse ApiServer::sendMessage(const std::string& body)
     const auto elapsed = std::chrono::steady_clock::now() - startedAt_;
     const auto timetagMs = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
     const uint8_t counter = txCounter_++;
-    if (!registry_.buildPayload(type, extractPayloadValues(body), timetagMs, counter, payload, error))
+    const auto* description = registry_.findByType(type);
+    if (description == nullptr)
+    {
+        return {400, "{\"ok\":false,\"error\":\"unknown message type\"}"};
+    }
+
+    if (!registry_.buildPayload(type, extractPayloadValues(body, *description), timetagMs, counter, payload, error))
     {
         return {400, "{\"ok\":false,\"error\":\"" + jsonEscape(error) + "\"}"};
     }
@@ -750,10 +828,7 @@ ApiServer::HttpResponse ApiServer::runTest(const std::string& body)
     extractString(body, "testId", testId);
     extractString(body, "source", source);
 
-    if (source.empty())
-    {
-        source = "mock";
-    }
+    const auto params = extractObjectNumbers(body, "params");
 
     transport::ITransport* current = nullptr;
     {
@@ -761,9 +836,11 @@ ApiServer::HttpResponse ApiServer::runTest(const std::string& body)
         current = transport_.get();
     }
 
-    const auto status = testRunner_.run(testId, source, current);
+    const auto status = testRunner_.run(testId, source, params, current, [this](const std::string& message) { addLog(message); });
     addLog("Test " + testId + " -> " + status.state + ": " + status.message);
-    return {200, "{\"ok\":" + boolJson(status.passed) + ",\"state\":\"" + status.state + "\",\"message\":\"" + jsonEscape(status.message) + "\"}"};
+    const bool accepted = status.state == "running" || status.passed;
+    return {200, "{\"ok\":" + boolJson(accepted) + ",\"id\":\"" + jsonEscape(status.id)
+                     + "\",\"state\":\"" + status.state + "\",\"message\":\"" + jsonEscape(status.message) + "\"}"};
 }
 
 std::string ApiServer::healthJson() const
@@ -917,7 +994,40 @@ std::string ApiServer::testsJson() const
         {
             out << ',';
         }
-        out << "{\"id\":\"" << tests[i].id << "\",\"name\":\"" << tests[i].name << "\",\"source\":\"" << tests[i].source << "\"}";
+        out << "{\"id\":\"" << tests[i].id
+            << "\",\"name\":\"" << tests[i].name
+            << "\",\"source\":\"" << tests[i].source
+            << "\",\"allowedSources\":[";
+
+        for (size_t j = 0U; j < tests[i].allowedSources.size(); ++j)
+        {
+            if (j != 0U)
+            {
+                out << ',';
+            }
+            out << '"' << jsonEscape(tests[i].allowedSources[j]) << '"';
+        }
+
+        out << "],\"parameters\":[";
+
+        for (size_t j = 0U; j < tests[i].parameters.size(); ++j)
+        {
+            const auto& parameter = tests[i].parameters[j];
+            if (j != 0U)
+            {
+                out << ',';
+            }
+
+            out << "{\"name\":\"" << jsonEscape(parameter.name)
+                << "\",\"label\":\"" << jsonEscape(parameter.label)
+                << "\",\"type\":\"" << jsonEscape(parameter.type)
+                << "\",\"defaultValue\":" << parameter.defaultValue
+                << ",\"min\":" << parameter.minValue
+                << ",\"max\":" << parameter.maxValue
+                << '}';
+        }
+
+        out << "]}";
     }
     out << "]}";
     return out.str();

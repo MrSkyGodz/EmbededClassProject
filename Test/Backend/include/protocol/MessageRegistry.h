@@ -41,6 +41,7 @@ public:
     MessageRegistry();
 
     const std::vector<MessageDescription>& descriptions() const;
+    const MessageDescription* findByType(const std::string& type) const;
     bool buildPayload(const std::string& type,
                       const std::map<std::string, double>& values,
                       uint32_t timetagMs,
@@ -53,7 +54,6 @@ public:
                        std::string& error) const;
 
 private:
-    const MessageDescription* findByType(const std::string& type) const;
     const MessageDescription* findByIcdType(uint8_t icdType) const;
 
     std::vector<MessageDescription> descriptions_;
