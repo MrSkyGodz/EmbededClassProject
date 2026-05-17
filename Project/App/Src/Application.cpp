@@ -1,7 +1,6 @@
 #include "Application.h"
 #include "IcdUartPublisher.hpp"
 #include "ParserImp.h"
-#include "ComImp/UartComImp.h"
 
 
 #include <stdio.h>

@@ -1,5 +1,4 @@
 "./App/Src/Application.o"
-"./Core/Src/ComImp/UartComImp.o"
 "./Core/Src/bno055.o"
 "./Core/Src/dma.o"
 "./Core/Src/freertos.o"
@@ -45,7 +44,6 @@
 "./Middlewares/Third_Party/FreeRTOS/Source/timers.o"
 "./Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM7/r0p1/port.o"
 "./Middlewares/Third_Party/FreeRTOS/Source/portable/MemMang/heap_4.o"
-"./Utils/Src/ComLib.o"
 "./Utils/Src/OnlineParser.o"
 "./deviceDrivers/drv_bno055/src/bno055_driver.o"
 "./deviceDrivers/drv_bno055/src/bno055_hal.o"

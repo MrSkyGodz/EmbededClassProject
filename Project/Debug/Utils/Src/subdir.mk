@@ -5,15 +5,12 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
-../Utils/Src/ComLib.cpp \
 ../Utils/Src/OnlineParser.cpp 
 
 OBJS += \
-./Utils/Src/ComLib.o \
 ./Utils/Src/OnlineParser.o 
 
 CPP_DEPS += \
-./Utils/Src/ComLib.d \
 ./Utils/Src/OnlineParser.d 
 
 
@@ -24,7 +21,7 @@ Utils/Src/%.o Utils/Src/%.su Utils/Src/%.cyclo: ../Utils/Src/%.cpp Utils/Src/sub
 clean: clean-Utils-2f-Src
 
 clean-Utils-2f-Src:
-	-$(RM) ./Utils/Src/ComLib.cyclo ./Utils/Src/ComLib.d ./Utils/Src/ComLib.o ./Utils/Src/ComLib.su ./Utils/Src/OnlineParser.cyclo ./Utils/Src/OnlineParser.d ./Utils/Src/OnlineParser.o ./Utils/Src/OnlineParser.su
+	-$(RM) ./Utils/Src/OnlineParser.cyclo ./Utils/Src/OnlineParser.d ./Utils/Src/OnlineParser.o ./Utils/Src/OnlineParser.su
 
 .PHONY: clean-Utils-2f-Src
 

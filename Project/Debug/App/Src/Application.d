@@ -40,10 +40,8 @@ App/Src/Application.o: ../App/Src/Application.cpp \
  ../Utils/Inc/FixedFrameQueue.hpp ../Utils/Inc/IcdMessageCodec.hpp \
  ../Utils/Inc/IcdFrameBuilder.hpp ../App/Inc/ParserImp.h \
  ../Utils/Inc/OnlineParser.hpp ../Utils/Inc/CircularBuffer.hpp \
- ../Core/Inc/ComImp/UartComImp.h ../Utils/Inc/CircularBuffer.hpp \
- ../Utils/Inc/IComLib.h ../Core/Inc/bno055.h ../Core/Inc/gpio.h \
- ../Core/Inc/main.h ../Core/Inc/board.h ../Core/Inc/main.h \
- ../Core/Inc/pwm.h \
+ ../Core/Inc/bno055.h ../Core/Inc/gpio.h ../Core/Inc/main.h \
+ ../Core/Inc/board.h ../Core/Inc/main.h ../Core/Inc/pwm.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_pwm/inc/drv_pwm.h \
  ../Core/Inc/motor.h ../Core/Inc/i2c.h ../Core/Inc/usart.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_uart/inc/drv_uart.h
@@ -93,9 +91,6 @@ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i
 ../App/Inc/ParserImp.h:
 ../Utils/Inc/OnlineParser.hpp:
 ../Utils/Inc/CircularBuffer.hpp:
-../Core/Inc/ComImp/UartComImp.h:
-../Utils/Inc/CircularBuffer.hpp:
-../Utils/Inc/IComLib.h:
 ../Core/Inc/bno055.h:
 ../Core/Inc/gpio.h:
 ../Core/Inc/main.h:
