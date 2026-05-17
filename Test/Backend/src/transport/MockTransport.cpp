@@ -60,11 +60,28 @@ size_t MockTransport::read(uint8_t* buffer, size_t bufferLength, std::string& er
 
     if (rxQueue_.empty())
     {
+        const uint8_t counter = generated_++;
+        const uint8_t pwm = generated_;
+        const uint8_t payload[] = {
+            0x00U, 0x00U, 0x00U, 0x00U,
+            counter,
+            0x00U,
+            pwm
+        };
+        uint8_t crc = static_cast<uint8_t>(sizeof(payload));
+        for (uint8_t byte : payload)
+        {
+            crc ^= byte;
+        }
+
         rxQueue_.push(0xAAU);
         rxQueue_.push(0x55U);
-        rxQueue_.push(0x01U);
-        rxQueue_.push(generated_++);
-        rxQueue_.push(static_cast<uint8_t>(0x01U ^ static_cast<uint8_t>(generated_ - 1U)));
+        rxQueue_.push(static_cast<uint8_t>(sizeof(payload)));
+        for (uint8_t byte : payload)
+        {
+            rxQueue_.push(byte);
+        }
+        rxQueue_.push(crc);
     }
 
     size_t count = 0U;

@@ -1,5 +1,6 @@
 ws/*
-
+Project/Debug/*
+Project//Release/*
 # USART test backend/frontend build outputs
 Test/Backend/usart_test_backend
 Test/Backend/usart_test_backend.exe

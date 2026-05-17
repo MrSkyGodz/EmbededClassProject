@@ -1,11 +1,14 @@
 #pragma once
 
 #include "protocol/MessageRegistry.h"
+#include "protocol/IcdOnlineParser.h"
+#include "recorder/ParsedMessageRecorder.h"
 #include "recorder/ReceiveRecorder.h"
 #include "tests/TestRunner.h"
 #include "transport/ITransport.h"
 
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -69,7 +72,11 @@ private:
 
     protocol::MessageRegistry registry_;
     recorder::ReceiveRecorder recorder_;
+    recorder::ParsedMessageRecorder parsedRecorder_;
+    protocol::IcdOnlineParser parser_;
     tests::TestRunner testRunner_;
+    std::chrono::steady_clock::time_point startedAt_;
+    uint8_t txCounter_ = 0U;
 
     mutable std::mutex logMutex_;
     std::vector<std::string> logs_;

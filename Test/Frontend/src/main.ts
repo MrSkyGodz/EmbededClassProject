@@ -15,6 +15,7 @@ interface AppState {
   testStatus: TestStatus | null;
   logs: string[];
   notice: string;
+  selectedMessageType: string;
 }
 
 const state: AppState = {
@@ -24,7 +25,8 @@ const state: AppState = {
   tests: [],
   testStatus: null,
   logs: [],
-  notice: ""
+  notice: "",
+  selectedMessageType: "pwm"
 };
 
 function render(): void {
@@ -39,7 +41,7 @@ function render(): void {
     </header>
     <div class="layout">
       ${connectionView(state.status)}
-      ${messageView(state.messages)}
+      ${messageView(state.messages, state.selectedMessageType)}
       ${testView(state.tests, state.testStatus)}
       ${receiveView(state.received)}
       <section class="panel wide">
@@ -77,6 +79,7 @@ async function loadInitial(): Promise<void> {
   try {
     const [messages, tests] = await Promise.all([apiClient.messages(), apiClient.tests()]);
     state.messages = messages.messages;
+    state.selectedMessageType = messages.messages.find((message) => message.direction !== "telemetry")?.type ?? "pwm";
     state.tests = tests.tests;
     await refreshSoft();
     state.notice = "Backend connected";
@@ -106,7 +109,7 @@ function bindEvents(): void {
 
   document.querySelector("#sendMessage")?.addEventListener("click", async () => {
     try {
-      const result = await apiClient.sendMessage(readMessageForm());
+      const result = await apiClient.sendMessage(readMessageForm(state.messages, state.selectedMessageType));
       const frame = document.querySelector<HTMLParagraphElement>("#lastFrame");
       if (frame) frame.textContent = result.frameHex;
       await refreshSoft();
@@ -114,6 +117,11 @@ function bindEvents(): void {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Send failed");
     }
+  });
+
+  document.querySelector("#messageType")?.addEventListener("change", (event) => {
+    state.selectedMessageType = (event.target as HTMLSelectElement).value;
+    render();
   });
 
   document.querySelector("#refreshReceived")?.addEventListener("click", refreshSoft);

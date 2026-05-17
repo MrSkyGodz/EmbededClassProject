@@ -10,6 +10,7 @@
 #include <cerrno>
 #include <cstring>
 #include <ctime>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -220,7 +221,9 @@ namespace api
 {
 ApiServer::ApiServer(unsigned port)
     : port_(port),
-      testRunner_(registry_, recorder_)
+      parser_(registry_, parsedRecorder_, [this](const std::string& error) { addLog(error); }),
+      testRunner_(registry_, recorder_),
+      startedAt_(std::chrono::steady_clock::now())
 {
 }
 
@@ -366,6 +369,7 @@ ApiServer::HttpResponse ApiServer::route(const HttpRequest& request)
     if (request.method == "POST" && request.path == "/api/received/clear")
     {
         recorder_.clear();
+        parsedRecorder_.clear();
         addLog("Received buffer cleared.");
         return {200, "{\"ok\":true}"};
     }
@@ -432,6 +436,7 @@ ApiServer::HttpResponse ApiServer::openPort(const std::string& body)
         portName_ = requestedPort;
         baudRate_ = static_cast<unsigned>(baud);
     }
+    parser_.reset();
     startReader();
     addLog("Opened " + mode + " transport on " + requestedPort + ".");
     return {200, "{\"ok\":true," + portStatusJson().substr(1U)};
@@ -464,7 +469,10 @@ ApiServer::HttpResponse ApiServer::sendMessage(const std::string& body)
 
     std::vector<uint8_t> payload;
     std::string error;
-    if (!registry_.buildPayload(type, extractPayloadValues(body), payload, error))
+    const auto elapsed = std::chrono::steady_clock::now() - startedAt_;
+    const auto timetagMs = static_cast<uint32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(elapsed).count());
+    const uint8_t counter = txCounter_++;
+    if (!registry_.buildPayload(type, extractPayloadValues(body), timetagMs, counter, payload, error))
     {
         return {400, "{\"ok\":false,\"error\":\"" + jsonEscape(error) + "\"}"};
     }
@@ -499,6 +507,29 @@ ApiServer::HttpResponse ApiServer::exportReceived(const std::string& body)
     if (!recorder_.exportText(path, error))
     {
         return {400, "{\"ok\":false,\"error\":\"" + jsonEscape(error) + "\"}"};
+    }
+
+    std::ofstream parsedFile(path, std::ios::app);
+    if (parsedFile)
+    {
+        parsedFile << "\nparsed_index,timestamp_ms,timetag_ms,counter,icd_type,type,fields\n";
+        for (const auto& message : parsedRecorder_.snapshot())
+        {
+            parsedFile << message.index << ',' << message.timestampMs << ',' << message.timetagMs << ','
+                       << static_cast<unsigned>(message.counter) << ',' << static_cast<unsigned>(message.icdType) << ','
+                       << message.type << ',';
+            bool first = true;
+            for (const auto& field : message.values)
+            {
+                if (!first)
+                {
+                    parsedFile << ';';
+                }
+                first = false;
+                parsedFile << field.first << '=' << field.second;
+            }
+            parsedFile << '\n';
+        }
     }
 
     addLog("Exported received data to " + path + ".");
@@ -545,7 +576,8 @@ std::string ApiServer::messagesJson() const
         {
             out << ',';
         }
-        out << "{\"type\":\"" << desc.type << "\",\"header\":" << static_cast<unsigned>(desc.header) << ",\"fields\":[";
+        out << "{\"type\":\"" << desc.type << "\",\"icdType\":" << static_cast<unsigned>(desc.icdType)
+            << ",\"direction\":\"" << desc.direction << "\",\"fields\":[";
         for (size_t j = 0U; j < desc.fields.size(); ++j)
         {
             const auto& field = desc.fields[j];
@@ -573,6 +605,7 @@ std::string ApiServer::portStatusJson() const
         << "\",\"baud\":" << baudRate_
         << ",\"readerRunning\":" << boolJson(readerRunning_)
         << ",\"receivedBytes\":" << recorder_.totalReceived()
+        << ",\"parsedMessages\":" << parsedRecorder_.totalParsed()
         << '}';
     return out.str();
 }
@@ -580,6 +613,7 @@ std::string ApiServer::portStatusJson() const
 std::string ApiServer::receivedJson() const
 {
     const auto entries = recorder_.snapshot(200U);
+    const auto parsedMessages = parsedRecorder_.snapshot(100U);
     std::ostringstream out;
     out << "{\"totalReceived\":" << recorder_.totalReceived() << ",\"buffered\":" << recorder_.size() << ",\"entries\":[";
     for (size_t i = 0U; i < entries.size(); ++i)
@@ -595,6 +629,31 @@ std::string ApiServer::receivedJson() const
             << ",\"hex\":\"";
         out << std::uppercase << std::hex << std::setfill('0') << std::setw(2) << static_cast<unsigned>(entry.value);
         out << std::dec << "\",\"ascii\":\"" << ascii << "\"}";
+    }
+    out << "],\"parsedTotal\":" << parsedRecorder_.totalParsed() << ",\"parsedMessages\":[";
+    for (size_t i = 0U; i < parsedMessages.size(); ++i)
+    {
+        const auto& message = parsedMessages[i];
+        if (i != 0U)
+        {
+            out << ',';
+        }
+        out << "{\"index\":" << message.index
+            << ",\"timestampMs\":" << message.timestampMs
+            << ",\"timetagMs\":" << message.timetagMs
+            << ",\"counter\":" << static_cast<unsigned>(message.counter)
+            << ",\"icdType\":" << static_cast<unsigned>(message.icdType)
+            << ",\"type\":\"" << jsonEscape(message.type) << "\",\"fields\":{";
+        size_t fieldIndex = 0U;
+        for (const auto& field : message.values)
+        {
+            if (fieldIndex++ != 0U)
+            {
+                out << ',';
+            }
+            out << "\"" << jsonEscape(field.first) << "\":" << field.second;
+        }
+        out << "}}";
     }
     out << "]}";
     return out.str();
@@ -665,6 +724,10 @@ void ApiServer::startReader()
             if (count > 0U)
             {
                 recorder_.append(buffer, count);
+                for (size_t i = 0U; i < count; ++i)
+                {
+                    parser_.pushByte(buffer[i]);
+                }
                 if (current->name() == "mock")
                 {
                     std::this_thread::sleep_for(std::chrono::milliseconds(100));

@@ -110,7 +110,7 @@ TestStatus TestRunner::runImmediate(const std::string& testId, const std::string
         std::vector<uint8_t> payload;
         std::string error;
         const std::string messageType = testId == "pwm_frame_mock" ? "pwm" : "motor";
-        if (!registry_.buildPayload(messageType, values, payload, error))
+        if (!registry_.buildPayload(messageType, values, 0U, 0U, payload, error))
         {
             return {testId, "finished", false, error};
         }

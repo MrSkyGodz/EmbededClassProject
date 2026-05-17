@@ -14,6 +14,22 @@ export function receiveView(received: ReceivedResponse | null): string {
       `
     )
     .join("");
+  const parsedRows = (received?.parsedMessages ?? [])
+    .slice(-60)
+    .map(
+      (message) => `
+        <tr>
+          <td>${message.index}</td>
+          <td>${message.timestampMs}</td>
+          <td>${message.timetagMs}</td>
+          <td>${message.counter}</td>
+          <td>${message.icdType}</td>
+          <td>${message.type}</td>
+          <td class="mono">${formatFields(message.fields)}</td>
+        </tr>
+      `
+    )
+    .join("");
 
   return `
     <section class="panel wide">
@@ -27,6 +43,16 @@ export function receiveView(received: ReceivedResponse | null): string {
         <button id="exportReceived">Export TXT</button>
       </div>
       <div class="table-wrap">
+        <h3>Parsed ICD Messages</h3>
+        <table>
+          <thead>
+            <tr><th>Index</th><th>Timestamp</th><th>Timetag</th><th>Counter</th><th>ICD</th><th>Type</th><th>Fields</th></tr>
+          </thead>
+          <tbody>${parsedRows}</tbody>
+        </table>
+      </div>
+      <div class="table-wrap">
+        <h3>Raw Bytes</h3>
         <table>
           <thead>
             <tr><th>Index</th><th>Timestamp</th><th>Hex</th><th>ASCII</th></tr>
@@ -36,4 +62,10 @@ export function receiveView(received: ReceivedResponse | null): string {
       </div>
     </section>
   `;
+}
+
+function formatFields(fields: Record<string, number>): string {
+  return Object.entries(fields)
+    .map(([name, value]) => `${name}=${Number(value).toFixed(2)}`)
+    .join("; ");
 }

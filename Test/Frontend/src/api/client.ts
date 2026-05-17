@@ -8,6 +8,7 @@ export interface PortStatus {
   baud: number;
   readerRunning: boolean;
   receivedBytes: number;
+  parsedMessages: number;
 }
 
 export interface MessageField {
@@ -19,7 +20,8 @@ export interface MessageField {
 
 export interface MessageDescription {
   type: string;
-  header: number;
+  icdType: number;
+  direction: "command" | "telemetry";
   fields: MessageField[];
 }
 
@@ -34,6 +36,18 @@ export interface ReceivedResponse {
   totalReceived: number;
   buffered: number;
   entries: ReceivedEntry[];
+  parsedTotal: number;
+  parsedMessages: ParsedMessage[];
+}
+
+export interface ParsedMessage {
+  index: number;
+  timestampMs: number;
+  timetagMs: number;
+  counter: number;
+  icdType: number;
+  type: string;
+  fields: Record<string, number>;
 }
 
 export interface TestInfo {

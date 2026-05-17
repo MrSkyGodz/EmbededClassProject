@@ -1,4 +1,5 @@
 #include "Application.h"
+#include "IcdUartPublisher.hpp"
 #include "ParserImp.h"
 #include "ComImp/UartComImp.h"
 
@@ -69,6 +70,24 @@ DrvGpio_AttachInterruptRequest_t ButtonGpioAttachRequest =
 	.UserData = 0,
 };
 
+IcdUartPublisher IcdPublisher(DebugUartTransfer);
+static uint8_t TelemetryCounter = 0U;
+
+static IcdMessage_t BuildBno055TelemetryMessage(const BNO055_Sensors_t* sample)
+{
+	IcdMessage_t message = {};
+	message.Header.TimetagMs = HAL_GetTick();
+	message.Header.Counter = TelemetryCounter++;
+	message.Header.IcdType = IcdType_Bno055Telemetry;
+	message.Payload.Bno055Telemetry.EulerX = sample->Euler.X;
+	message.Payload.Bno055Telemetry.EulerY = sample->Euler.Y;
+	message.Payload.Bno055Telemetry.EulerZ = sample->Euler.Z;
+	message.Payload.Bno055Telemetry.GyroX = sample->Gyro.X;
+	message.Payload.Bno055Telemetry.GyroY = sample->Gyro.Y;
+	message.Payload.Bno055Telemetry.GyroZ = sample->Gyro.Z;
+	return message;
+}
+
 void Initialize()
 {
 	if (BNO055_Init() != BNO055_ERROR_NONE)
@@ -96,21 +115,21 @@ void Loop()
 {
 	if (parser.commandReady != 0U)
 	{
-		CommunicationProtocol_t command = {};
+		IcdMessage_t command = {};
 
 		__disable_irq();
 		memcpy(&command, (const void *) &parser.receivedCommand, sizeof(command));
 		parser.commandReady = 0U;
 		__enable_irq();
 
-		if (command.Header == Header_PWMControl)
+		if (command.Header.IcdType == IcdType_PWMControl)
 		{
-			(void) PWM_SetLedRedDuty(command.Cp.PWMControl.Pwm);
+			(void) PWM_SetLedRedDuty(command.Payload.PWMControl.Pwm);
 		}
-		else if (command.Header == Header_MotorControl)
+		else if (command.Header.IcdType == IcdType_MotorControl)
 		{
-			(void) MOTOR_SetMotor1Angle(command.Cp.MotorControl.Motor1AngleDeg);
-			(void) MOTOR_SetMotor2Angle(command.Cp.MotorControl.Motor2AngleDeg);
+			(void) MOTOR_SetMotor1Angle(command.Payload.MotorControl.Motor1AngleDeg);
+			(void) MOTOR_SetMotor2Angle(command.Payload.MotorControl.Motor2AngleDeg);
 		}
 	}
 }
@@ -138,13 +157,8 @@ void PublishSensorSample(const BNO055_Sensors_t* sample)
 		return;
 	}
 
-	printf("Euler H/R/P: %.2f %.2f %.2f | Gyro XYZ: %.2f %.2f %.2f\r\n",
-	       sample->Euler.X,
-	       sample->Euler.Y,
-	       sample->Euler.Z,
-	       sample->Gyro.X,
-	       sample->Gyro.Y,
-	       sample->Gyro.Z);
+	const IcdMessage_t message = BuildBno055TelemetryMessage(sample);
+	(void) IcdPublisher.Publish(message);
 }
 
 

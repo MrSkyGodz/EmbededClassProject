@@ -9,9 +9,9 @@
 class ParserImp : public OnlineParser
 {
 public:
-	ParserImp() : OnlineParser(2U, sizeof(CommunicationProtocol_t)) {}
+	ParserImp() : OnlineParser(2U, ICD_HEADER_SIZE_BYTES + sizeof(IcdPayload_u)) {}
 
-	CommunicationProtocol_t receivedCommand = {};
+	IcdMessage_t receivedCommand = {};
 	volatile uint8_t commandReady = 0U;
 
 protected:
@@ -39,34 +39,38 @@ protected:
 	}
 	void onFrameReceived(const uint8_t *payload, uint8_t payloadLength) override
 	{
-		if (payloadLength < sizeof(Header_e))
+		if (payloadLength < ICD_HEADER_SIZE_BYTES)
 		{
 			return;
 		}
 
-		const Header_e header = static_cast<Header_e>(payload[0]);
-		const uint8_t* messagePayload = &payload[sizeof(Header_e)];
-		const uint8_t messagePayloadLength = payloadLength - sizeof(Header_e);
+		const uint8_t* messagePayload = &payload[ICD_HEADER_SIZE_BYTES];
+		const uint8_t messagePayloadLength = payloadLength - ICD_HEADER_SIZE_BYTES;
 
-		if (header == Header_PWMControl)
+		receivedCommand.Header.TimetagMs = static_cast<uint32_t>(payload[0]) |
+		                                   (static_cast<uint32_t>(payload[1]) << 8U) |
+		                                   (static_cast<uint32_t>(payload[2]) << 16U) |
+		                                   (static_cast<uint32_t>(payload[3]) << 24U);
+		receivedCommand.Header.Counter = payload[4];
+		receivedCommand.Header.IcdType = payload[5];
+
+		if (receivedCommand.Header.IcdType == IcdType_PWMControl)
 		{
-			if (messagePayloadLength != sizeof(receivedCommand.Cp.PWMControl))
+			if (messagePayloadLength != sizeof(receivedCommand.Payload.PWMControl))
 			{
 				return;
 			}
 
-			receivedCommand.Header = header;
-			memcpy((void *) &receivedCommand.Cp.PWMControl, messagePayload, sizeof(receivedCommand.Cp.PWMControl));
+			memcpy((void *) &receivedCommand.Payload.PWMControl, messagePayload, sizeof(receivedCommand.Payload.PWMControl));
 		}
-		else if (header == Header_MotorControl)
+		else if (receivedCommand.Header.IcdType == IcdType_MotorControl)
 		{
-			if (messagePayloadLength != sizeof(receivedCommand.Cp.MotorControl))
+			if (messagePayloadLength != sizeof(receivedCommand.Payload.MotorControl))
 			{
 				return;
 			}
 
-			receivedCommand.Header = header;
-			memcpy((void *) &receivedCommand.Cp.MotorControl, messagePayload, sizeof(receivedCommand.Cp.MotorControl));
+			memcpy((void *) &receivedCommand.Payload.MotorControl, messagePayload, sizeof(receivedCommand.Payload.MotorControl));
 		}
 		else
 		{

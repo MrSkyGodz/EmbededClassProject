@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 
-#include "CommunicationType.h"
+#include "IcdMessageCodec.hpp"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -15,18 +15,6 @@
 
 namespace
 {
-uint8_t crc8(const uint8_t *payload, uint8_t payloadLength)
-{
-    uint8_t crc = payloadLength;
-
-    for (uint8_t i = 0U; i < payloadLength; ++i)
-    {
-        crc ^= payload[i];
-    }
-
-    return crc;
-}
-
 bool parseAngle(const char *text, float &value)
 {
     char *end = nullptr;
@@ -65,7 +53,7 @@ void printUsage(const char *programName)
     std::fprintf(stderr, "  %s COM5 motor 90.0 45.0\n", programName);
 }
 
-bool configurePwmPacket(int argc, char **argv, CommunicationProtocol_t &packet)
+bool configurePwmPacket(int argc, char **argv, IcdMessage_t &packet)
 {
     uint8_t pwmValue = 0U;
 
@@ -81,17 +69,17 @@ bool configurePwmPacket(int argc, char **argv, CommunicationProtocol_t &packet)
         return false;
     }
 
-    packet.Header = Header_PWMControl;
-    packet.Cp.PWMControl.Pwm = pwmValue;
+    packet.Header.IcdType = IcdType_PWMControl;
+    packet.Payload.PWMControl.Pwm = pwmValue;
 
-    std::printf("Communication Header: %u, PWM: %u\n",
-                static_cast<unsigned>(packet.Header),
-                static_cast<unsigned>(packet.Cp.PWMControl.Pwm));
+    std::printf("ICD Type: %u, PWM: %u\n",
+                static_cast<unsigned>(packet.Header.IcdType),
+                static_cast<unsigned>(packet.Payload.PWMControl.Pwm));
 
     return true;
 }
 
-bool configureMotorPacket(int argc, char **argv, CommunicationProtocol_t &packet)
+bool configureMotorPacket(int argc, char **argv, IcdMessage_t &packet)
 {
     float motor1AngleDeg = 0.0f;
     float motor2AngleDeg = 0.0f;
@@ -119,19 +107,19 @@ bool configureMotorPacket(int argc, char **argv, CommunicationProtocol_t &packet
         }
     }
 
-    packet.Header = Header_MotorControl;
-    packet.Cp.MotorControl.Motor1AngleDeg = motor1AngleDeg;
-    packet.Cp.MotorControl.Motor2AngleDeg = motor2AngleDeg;
+    packet.Header.IcdType = IcdType_MotorControl;
+    packet.Payload.MotorControl.Motor1AngleDeg = motor1AngleDeg;
+    packet.Payload.MotorControl.Motor2AngleDeg = motor2AngleDeg;
 
-    std::printf("Communication Header: %u, Motor1: %.2f deg, Motor2: %.2f deg\n",
-                static_cast<unsigned>(packet.Header),
-                static_cast<double>(packet.Cp.MotorControl.Motor1AngleDeg),
-                static_cast<double>(packet.Cp.MotorControl.Motor2AngleDeg));
+    std::printf("ICD Type: %u, Motor1: %.2f deg, Motor2: %.2f deg\n",
+                static_cast<unsigned>(packet.Header.IcdType),
+                static_cast<double>(packet.Payload.MotorControl.Motor1AngleDeg),
+                static_cast<double>(packet.Payload.MotorControl.Motor2AngleDeg));
 
     return true;
 }
 
-bool configurePacket(int argc, char **argv, CommunicationProtocol_t &packet)
+bool configurePacket(int argc, char **argv, IcdMessage_t &packet)
 {
     if (std::strcmp(argv[2], "pwm") == 0)
     {
@@ -147,23 +135,9 @@ bool configurePacket(int argc, char **argv, CommunicationProtocol_t &packet)
     return false;
 }
 
-uint8_t buildPayload(const CommunicationProtocol_t &packet, uint8_t *payload)
+uint8_t buildPayload(const IcdMessage_t &packet, uint8_t *payload)
 {
-    payload[0] = static_cast<uint8_t>(packet.Header);
-
-    if (packet.Header == Header_PWMControl)
-    {
-        std::memcpy(&payload[sizeof(Header_e)], &packet.Cp.PWMControl, sizeof(packet.Cp.PWMControl));
-        return static_cast<uint8_t>(sizeof(Header_e) + sizeof(packet.Cp.PWMControl));
-    }
-
-    if (packet.Header == Header_MotorControl)
-    {
-        std::memcpy(&payload[sizeof(Header_e)], &packet.Cp.MotorControl, sizeof(packet.Cp.MotorControl));
-        return static_cast<uint8_t>(sizeof(Header_e) + sizeof(packet.Cp.MotorControl));
-    }
-
-    return 0U;
+    return IcdMessageCodec::BuildPayload(packet, payload);
 }
 
 void printFrame(const uint8_t *frame, size_t length)
@@ -288,11 +262,11 @@ bool sendFrameToPort(const char *portName, const uint8_t *frame, size_t length)
 
 int main(int argc, char **argv)
 {
-    static_assert(sizeof(CommunicationProtocol_t) <= 64U, "Communication payload is larger than sender buffer");
+    static_assert(sizeof(IcdMessage_t) <= 64U, "ICD payload is larger than sender buffer");
 
-    CommunicationProtocol_t packet{};
-    uint8_t frame[2U + 1U + sizeof(CommunicationProtocol_t) + 1U];
-    uint8_t payload[sizeof(Header_e) + sizeof(CommunicationProtocol_u)] = {};
+    IcdMessage_t packet{};
+    uint8_t frame[2U + 1U + sizeof(IcdMessage_t) + 1U];
+    uint8_t payload[ICD_HEADER_SIZE_BYTES + sizeof(IcdPayload_u)] = {};
     size_t frameLength = 0U;
 
     if (argc < 3)
@@ -314,16 +288,7 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    frame[frameLength++] = 0xAAU;
-    frame[frameLength++] = 0x55U;
-    frame[frameLength++] = payloadLength;
-
-    for (uint8_t i = 0U; i < payloadLength; ++i)
-    {
-        frame[frameLength++] = payload[i];
-    }
-
-    frame[frameLength++] = crc8(payload, payloadLength);
+    frameLength = IcdProtocol::BuildFrame(payload, payloadLength, frame);
     printFrame(frame, frameLength);
 
     if (!sendFrameToPort(argv[1], frame, frameLength))

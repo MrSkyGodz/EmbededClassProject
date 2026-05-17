@@ -10,12 +10,23 @@
 
 #include <stdint.h>
 
+#define ICD_HEADER_SIZE_BYTES 6U
+
 typedef enum : uint8_t
 {
-	Header_PWMControl,
-	Header_MotorControl,
-	Header_MAX
-}Header_e;
+	IcdType_PWMControl,
+	IcdType_MotorControl,
+	IcdType_Bno055Telemetry,
+	IcdType_MAX
+}IcdType_e;
+
+typedef struct
+{
+	uint32_t TimetagMs;
+	uint8_t Counter;
+	uint8_t IcdType;
+}IcdHeader_t;
+
 typedef struct
 {
 	uint8_t Pwm;
@@ -27,16 +38,28 @@ typedef struct
 	float Motor2AngleDeg;
 }MotorControl_t;
 
+typedef struct
+{
+	float EulerX;
+	float EulerY;
+	float EulerZ;
+	float GyroX;
+	float GyroY;
+	float GyroZ;
+}Bno055Telemetry_t;
+
 typedef union
 {
 	PWMControl_t PWMControl;
 	MotorControl_t MotorControl;
-}CommunicationProtocol_u;
+	Bno055Telemetry_t Bno055Telemetry;
+}IcdPayload_u;
+
 typedef struct
 {
-	Header_e Header;
-	CommunicationProtocol_u Cp;
-}CommunicationProtocol_t;
+	IcdHeader_t Header;
+	IcdPayload_u Payload;
+}IcdMessage_t;
 
 
 
