@@ -1,6 +1,30 @@
 #include "transport/MockTransport.h"
 
+#include "protocol/Frame.h"
+
+#include <cstring>
 #include <thread>
+#include <vector>
+
+namespace
+{
+constexpr uint8_t IcdType_Bno055Telemetry = 2U;
+
+void appendUint32Le(std::vector<uint8_t>& payload, uint32_t value)
+{
+    payload.push_back(static_cast<uint8_t>(value & 0xFFU));
+    payload.push_back(static_cast<uint8_t>((value >> 8U) & 0xFFU));
+    payload.push_back(static_cast<uint8_t>((value >> 16U) & 0xFFU));
+    payload.push_back(static_cast<uint8_t>((value >> 24U) & 0xFFU));
+}
+
+void appendFloat(std::vector<uint8_t>& payload, float value)
+{
+    uint8_t raw[sizeof(float)] = {};
+    std::memcpy(raw, &value, sizeof(float));
+    payload.insert(payload.end(), raw, raw + sizeof(float));
+}
+}
 
 namespace transport
 {
@@ -33,17 +57,14 @@ bool MockTransport::isOpen() const
 
 bool MockTransport::write(const uint8_t* data, size_t length, std::string& error)
 {
+    (void) data;
+    (void) length;
     (void) error;
     std::lock_guard<std::mutex> lock(mutex_);
     if (!open_)
     {
         error = "mock transport is not open";
         return false;
-    }
-
-    for (size_t i = 0U; i < length; ++i)
-    {
-        rxQueue_.push(data[i]);
     }
 
     return true;
@@ -61,27 +82,23 @@ size_t MockTransport::read(uint8_t* buffer, size_t bufferLength, std::string& er
     if (rxQueue_.empty())
     {
         const uint8_t counter = generated_++;
-        const uint8_t pwm = generated_;
-        const uint8_t payload[] = {
-            0x00U, 0x00U, 0x00U, 0x00U,
-            counter,
-            0x00U,
-            pwm
-        };
-        uint8_t crc = static_cast<uint8_t>(sizeof(payload));
-        for (uint8_t byte : payload)
-        {
-            crc ^= byte;
-        }
+        const float step = static_cast<float>(counter);
+        std::vector<uint8_t> payload;
+        appendUint32Le(payload, static_cast<uint32_t>(counter) * 20U);
+        payload.push_back(counter);
+        payload.push_back(IcdType_Bno055Telemetry);
+        appendFloat(payload, 10.0F + (step * 0.5F));
+        appendFloat(payload, -3.0F + (step * 0.25F));
+        appendFloat(payload, 45.0F + step);
+        appendFloat(payload, 0.01F * step);
+        appendFloat(payload, 0.02F * step);
+        appendFloat(payload, 0.03F * step);
 
-        rxQueue_.push(0xAAU);
-        rxQueue_.push(0x55U);
-        rxQueue_.push(static_cast<uint8_t>(sizeof(payload)));
-        for (uint8_t byte : payload)
+        const auto frame = protocol::buildFrame(payload);
+        for (uint8_t byte : frame.bytes)
         {
             rxQueue_.push(byte);
         }
-        rxQueue_.push(crc);
     }
 
     size_t count = 0U;

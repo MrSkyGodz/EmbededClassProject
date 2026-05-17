@@ -110,6 +110,7 @@ HAL_StatusTypeDef DrvUart_Open(void* vpParam);
 HAL_StatusTypeDef DrvUart_Close(void* vpParam);
 HAL_StatusTypeDef DrvUart_Read(void* vpParam, void* pvBuffer, const uint32_t xBytes);
 HAL_StatusTypeDef DrvUart_Write(void* vpParam, const void* pvBuffer, const uint32_t xBytes);
+uint8_t DrvUart_IsTxBusy(uint32_t uartIndex);
 HAL_StatusTypeDef DrvUart_IrqHandler(void);
 HAL_StatusTypeDef DrvUart_Ioctl(const uint32_t xCommand, void* vpParam);
 

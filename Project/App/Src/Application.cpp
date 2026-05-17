@@ -70,8 +70,30 @@ DrvGpio_AttachInterruptRequest_t ButtonGpioAttachRequest =
 	.UserData = 0,
 };
 
-IcdUartPublisher IcdPublisher(DebugUartTransfer);
+IcdUartPublisher IcdPublisher;
 static uint8_t TelemetryCounter = 0U;
+
+static bool WriteIcdFrame(void* context, const uint8_t* frame, uint8_t frameLength)
+{
+	DrvUart_TransferParams_t* transfer = static_cast<DrvUart_TransferParams_t*>(context);
+	if ((transfer == nullptr) || (frame == nullptr) || (frameLength == 0U))
+	{
+		return false;
+	}
+
+	return DrvUart_Write(transfer, frame, frameLength) == HAL_OK;
+}
+
+static bool IsIcdFrameTxBusy(void* context)
+{
+	const DrvUart_TransferParams_t* transfer = static_cast<const DrvUart_TransferParams_t*>(context);
+	if (transfer == nullptr)
+	{
+		return false;
+	}
+
+	return DrvUart_IsTxBusy(transfer->UartIndex) != 0U;
+}
 
 static IcdMessage_t BuildBno055TelemetryMessage(const BNO055_Sensors_t* sample)
 {
@@ -90,6 +112,13 @@ static IcdMessage_t BuildBno055TelemetryMessage(const BNO055_Sensors_t* sample)
 
 void Initialize()
 {
+	const IcdFrameTransmitterConfig_t icdTxConfig = {
+		.Write = WriteIcdFrame,
+		.IsBusy = IsIcdFrameTxBusy,
+		.Context = &DebugUartTransfer,
+	};
+	IcdPublisher.Configure(icdTxConfig);
+
 	if (BNO055_Init() != BNO055_ERROR_NONE)
 	{
 		Error_Handler();
@@ -113,6 +142,8 @@ void Initialize()
 
 void Loop()
 {
+	IcdPublisher.Process();
+
 	if (parser.commandReady != 0U)
 	{
 		IcdMessage_t command = {};

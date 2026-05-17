@@ -63,18 +63,42 @@ export interface TestStatus {
   message: string;
 }
 
-const API_BASE = "http://localhost:8081";
+const CONFIGURED_API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE_CANDIDATES = Array.from(
+  new Set([CONFIGURED_API_BASE, "http://localhost:8081", "http://localhost:8080"].filter((base): base is string => Boolean(base)))
+);
+let activeApiBase = API_BASE_CANDIDATES[0];
+
+export function getApiBase(): string {
+  return activeApiBase;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...init
-  });
-  const data = (await response.json()) as T & { error?: string };
-  if (!response.ok) {
-    throw new Error(data.error ?? `Request failed: ${response.status}`);
+  let lastNetworkError: unknown = null;
+  const bases = [activeApiBase, ...API_BASE_CANDIDATES.filter((base) => base !== activeApiBase)];
+
+  for (const base of bases) {
+    try {
+      const response = await fetch(`${base}${path}`, {
+        headers: { "Content-Type": "application/json" },
+        ...init
+      });
+      const data = (await response.json()) as T & { error?: string };
+      if (!response.ok) {
+        throw new Error(data.error ?? `Request failed: ${response.status}`);
+      }
+      activeApiBase = base;
+      return data;
+    } catch (error) {
+      lastNetworkError = error;
+      if (error instanceof TypeError) {
+        continue;
+      }
+      throw error;
+    }
   }
-  return data;
+
+  throw lastNetworkError instanceof Error ? lastNetworkError : new Error("Backend is not reachable");
 }
 
 export const apiClient = {

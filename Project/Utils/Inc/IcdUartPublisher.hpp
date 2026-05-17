@@ -1,28 +1,51 @@
 #pragma once
 
+#include "IcdFrameTransmitter.hpp"
+#include "IcdFrameQueue.hpp"
 #include "IcdMessageCodec.hpp"
-#include "drv_uart/inc/drv_uart.h"
 
 class IcdUartPublisher
 {
 public:
-	explicit IcdUartPublisher(DrvUart_TransferParams_t& uartTransfer)
-		: uartTransfer_(uartTransfer)
+	IcdUartPublisher()
 	{
+	}
+
+	void Configure(const IcdFrameTransmitterConfig_t& config)
+	{
+		transmitter_.Configure(config);
 	}
 
 	bool Publish(const IcdMessage_t& message)
 	{
-		uint8_t frame[2U + 1U + ICD_HEADER_SIZE_BYTES + sizeof(IcdPayload_u) + 1U] = {0U};
+		uint8_t frame[IcdFrameQueue::MaxBytes] = {0U};
 		const uint8_t frameLength = IcdMessageCodec::BuildFrame(message, frame);
 		if (frameLength == 0U)
 		{
 			return false;
 		}
 
-		return DrvUart_Write(&uartTransfer_, frame, frameLength) == HAL_OK;
+		return PushFrame(frame, frameLength);
+	}
+
+	void Process()
+	{
+		if (!transmitter_.CanStartNext() || frameQueue_.Empty())
+		{
+			return;
+		}
+		if (transmitter_.Start(frameQueue_.FrontData(), frameQueue_.FrontLength()))
+		{
+			frameQueue_.Pop();
+		}
 	}
 
 private:
-	DrvUart_TransferParams_t& uartTransfer_;
+	bool PushFrame(const uint8_t* frame, uint8_t frameLength)
+	{
+		return frameQueue_.Push(frame, frameLength);
+	}
+
+	IcdFrameQueue frameQueue_;
+	IcdFrameTransmitter transmitter_;
 };

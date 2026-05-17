@@ -22,6 +22,7 @@ C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_u
 C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:807:19:DrvUart_Close	24	static
 C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:819:19:DrvUart_Read	32	static
 C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:846:19:DrvUart_Write	40	static
-C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:890:26:DrvUart_AbortInternal	24	static
-C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:902:19:DrvUart_IrqHandler	32	static,ignoring_inline_asm
-C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:934:19:DrvUart_Ioctl	32	static
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:890:9:DrvUart_IsTxBusy	24	static
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:905:26:DrvUart_AbortInternal	24	static
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:917:19:DrvUart_IrqHandler	32	static,ignoring_inline_asm
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:949:19:DrvUart_Ioctl	32	static

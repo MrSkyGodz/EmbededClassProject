@@ -887,6 +887,21 @@ HAL_StatusTypeDef DrvUart_Write(void* vpParam, const void* pvBuffer, const uint3
 	}
 }
 
+uint8_t DrvUart_IsTxBusy(uint32_t uartIndex)
+{
+	DrvUart_Context_t* context = DrvUart_GetContext(uartIndex);
+	HAL_UART_StateTypeDef state = HAL_UART_STATE_RESET;
+
+	if ((context == NULL) || (context->handle == NULL))
+	{
+		return 0U;
+	}
+
+	state = HAL_UART_GetState(context->handle);
+	return ((state == HAL_UART_STATE_BUSY_TX) ||
+	        (state == HAL_UART_STATE_BUSY_TX_RX)) ? 1U : 0U;
+}
+
 static HAL_StatusTypeDef DrvUart_AbortInternal(uint32_t index)
 {
 	DrvUart_Context_t* context = DrvUart_GetContext(index);

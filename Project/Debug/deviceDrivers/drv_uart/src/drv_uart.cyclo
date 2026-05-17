@@ -22,6 +22,7 @@ C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_u
 C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:807:19:DrvUart_Close	2
 C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:819:19:DrvUart_Read	8
 C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:846:19:DrvUart_Write	11
-C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:890:26:DrvUart_AbortInternal	3
-C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:902:19:DrvUart_IrqHandler	6
-C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:934:19:DrvUart_Ioctl	9
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:890:9:DrvUart_IsTxBusy	5
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:905:26:DrvUart_AbortInternal	3
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:917:19:DrvUart_IrqHandler	6
+C:/Users/yunus/Desktop/Embbeded Systems/Project/deviceDrivers/drv_uart/src/drv_uart.c:949:19:DrvUart_Ioctl	9

@@ -6,6 +6,7 @@ export function messageView(messages: MessageDescription[], selectedType: string
   const options = commandMessages
     .map((message) => `<option value="${message.type}" ${message.type === selectedMessage?.type ? "selected" : ""}>${message.type}</option>`)
     .join("");
+  const hasCommandMessages = commandMessages.length > 0;
   const fieldInputs = selectedMessage
     ? selectedMessage.fields
         .map(
@@ -34,11 +35,17 @@ export function messageView(messages: MessageDescription[], selectedType: string
       <div class="form-grid">
         <label>
           Type
-          <select id="messageType">${options}</select>
+          <select id="messageType" ${hasCommandMessages ? "" : "disabled"}>
+            ${hasCommandMessages ? options : '<option value="">Backend message list is empty</option>'}
+          </select>
         </label>
         ${fieldInputs}
       </div>
-      <button id="sendMessage">Send</button>
+      <div class="button-row">
+        <button id="sendMessage" ${hasCommandMessages ? "" : "disabled"}>Send</button>
+        <button id="reloadMessages" class="secondary">Reload Messages</button>
+      </div>
+      ${hasCommandMessages ? "" : '<p class="hint">GET /api/messages yaniti gelmeden gonderilecek field listesi cizilmez.</p>'}
       <p id="lastFrame" class="mono"></p>
     </section>
   `;

@@ -1,4 +1,4 @@
-import { apiClient, type MessageDescription, type PortStatus, type ReceivedResponse, type TestInfo, type TestStatus } from "./api/client";
+import { apiClient, getApiBase, type MessageDescription, type PortStatus, type ReceivedResponse, type TestInfo, type TestStatus } from "./api/client";
 import { connectionView, readConnectionForm } from "./views/connectionView";
 import { messageView, readMessageForm } from "./views/messageView";
 import { receiveView } from "./views/receiveView";
@@ -61,7 +61,30 @@ function setNotice(message: string): void {
   render();
 }
 
-async function refreshSoft(): Promise<void> {
+function canAutoRender(): boolean {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement)) {
+    return true;
+  }
+
+  return !active.closest("select, input, textarea");
+}
+
+function commandMessages(): MessageDescription[] {
+  return state.messages.filter((message) => message.direction !== "telemetry");
+}
+
+async function loadMessages(): Promise<void> {
+  const messages = await apiClient.messages();
+  state.messages = messages.messages;
+
+  const commands = commandMessages();
+  if (!commands.some((message) => message.type === state.selectedMessageType)) {
+    state.selectedMessageType = commands[0]?.type ?? "";
+  }
+}
+
+async function refreshSoft(options: { render?: boolean } = {}): Promise<void> {
   const [status, received, logs, testStatus] = await Promise.all([
     apiClient.portStatus(),
     apiClient.received(),
@@ -72,22 +95,42 @@ async function refreshSoft(): Promise<void> {
   state.received = received;
   state.logs = logs.logs;
   state.testStatus = testStatus;
-  render();
+  if (options.render ?? true) {
+    render();
+  }
 }
 
 async function loadInitial(): Promise<void> {
+  let connected = false;
+
   try {
-    const [messages, tests] = await Promise.all([apiClient.messages(), apiClient.tests()]);
-    state.messages = messages.messages;
-    state.selectedMessageType = messages.messages.find((message) => message.direction !== "telemetry")?.type ?? "pwm";
-    state.tests = tests.tests;
-    await refreshSoft();
-    state.notice = "Backend connected";
-    render();
+    await loadMessages();
+    connected = true;
   } catch (error) {
-    state.notice = error instanceof Error ? error.message : "Backend is not reachable";
-    render();
+    state.notice = error instanceof Error ? `Messages not loaded from ${getApiBase()}: ${error.message}` : "Messages not loaded";
   }
+
+  try {
+    const tests = await apiClient.tests();
+    state.tests = tests.tests;
+    connected = true;
+  } catch {
+    state.tests = [];
+  }
+
+  try {
+    await refreshSoft();
+    connected = true;
+  } catch (error) {
+    if (!state.notice) {
+      state.notice = error instanceof Error ? error.message : "Backend is not reachable";
+    }
+  }
+
+  if (connected && state.messages.length > 0) {
+    state.notice = `Backend connected: ${getApiBase()}`;
+  }
+  render();
 }
 
 function bindEvents(): void {
@@ -124,6 +167,15 @@ function bindEvents(): void {
     render();
   });
 
+  document.querySelector("#reloadMessages")?.addEventListener("click", async () => {
+    try {
+      await loadMessages();
+      setNotice(`Messages loaded from ${getApiBase()}`);
+    } catch (error) {
+      setNotice(error instanceof Error ? `Messages not loaded: ${error.message}` : "Messages not loaded");
+    }
+  });
+
   document.querySelector("#refreshReceived")?.addEventListener("click", refreshSoft);
 
   document.querySelector("#clearReceived")?.addEventListener("click", async () => {
@@ -153,8 +205,10 @@ function bindEvents(): void {
 
 loadInitial();
 window.setInterval(() => {
-  refreshSoft().catch(() => {
-    state.notice = "Backend is not reachable";
-    render();
+  refreshSoft({ render: canAutoRender() }).catch(() => {
+    state.notice = `Backend is not reachable: ${getApiBase()}`;
+    if (canAutoRender()) {
+      render();
+    }
   });
 }, 1500);

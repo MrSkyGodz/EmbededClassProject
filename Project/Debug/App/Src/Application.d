@@ -35,15 +35,16 @@ App/Src/Application.o: ../App/Src/Application.cpp \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart.h \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart_ex.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h \
- ../App/Inc/ParserImp.h ../Utils/Types/CommunicationType.h \
- ../Utils/Inc/OnlineParser.hpp ../Utils/Inc/CircularBuffer.hpp \
- ../Core/Inc/ComImp/UartComImp.h ../Utils/Inc/CircularBuffer.hpp \
- ../Utils/Inc/IComLib.h ../Core/Inc/bno055.h ../Core/Inc/gpio.h \
- ../Core/Inc/main.h ../Core/Inc/board.h ../Core/Inc/main.h \
- ../Core/Inc/pwm.h \
+ ../Utils/Inc/IcdUartPublisher.hpp ../Utils/Inc/IcdMessageCodec.hpp \
+ ../Utils/Inc/IcdFrameBuilder.hpp ../Utils/Types/CommunicationType.h \
+ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_uart/inc/drv_uart.h \
+ ../App/Inc/ParserImp.h ../Utils/Inc/OnlineParser.hpp \
+ ../Utils/Inc/CircularBuffer.hpp ../Core/Inc/ComImp/UartComImp.h \
+ ../Utils/Inc/CircularBuffer.hpp ../Utils/Inc/IComLib.h \
+ ../Core/Inc/bno055.h ../Core/Inc/gpio.h ../Core/Inc/main.h \
+ ../Core/Inc/board.h ../Core/Inc/main.h ../Core/Inc/pwm.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_pwm/inc/drv_pwm.h \
- ../Core/Inc/motor.h ../Core/Inc/i2c.h ../Core/Inc/usart.h \
- C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_uart/inc/drv_uart.h
+ ../Core/Inc/motor.h ../Core/Inc/i2c.h ../Core/Inc/usart.h
 ../App/Inc/Application.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_driver.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_const.h:
@@ -80,8 +81,12 @@ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_gpio/inc/drv_
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart.h:
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart_ex.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h:
-../App/Inc/ParserImp.h:
+../Utils/Inc/IcdUartPublisher.hpp:
+../Utils/Inc/IcdMessageCodec.hpp:
+../Utils/Inc/IcdFrameBuilder.hpp:
 ../Utils/Types/CommunicationType.h:
+C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_uart/inc/drv_uart.h:
+../App/Inc/ParserImp.h:
 ../Utils/Inc/OnlineParser.hpp:
 ../Utils/Inc/CircularBuffer.hpp:
 ../Core/Inc/ComImp/UartComImp.h:
@@ -97,4 +102,3 @@ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_pwm/inc/drv_p
 ../Core/Inc/motor.h:
 ../Core/Inc/i2c.h:
 ../Core/Inc/usart.h:
-C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_uart/inc/drv_uart.h:
