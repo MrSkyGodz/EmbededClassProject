@@ -1,10 +1,7 @@
 #pragma once
 
-#include "protocol/MessageRegistry.h"
-#include "recorder/ParsedMessageRecorder.h"
-#include "recorder/ReceiveRecorder.h"
+#include "channel/ChannelManager.h"
 #include "tests/TestDefinition.h"
-#include "transport/ITransport.h"
 
 #include <atomic>
 #include <functional>
@@ -14,15 +11,42 @@
 
 namespace tests
 {
+class TestChannel
+{
+public:
+    TestChannel(channel::ChannelManager& channels,
+                std::string channelName,
+                const std::atomic<bool>& stopRequested);
+
+    const std::string& name() const;
+    bool exists() const;
+
+    bool sendMessage(const std::string& type,
+                     const std::map<std::string, double>& payload,
+                     std::string& error);
+
+    std::vector<uint8_t> snapshotRaw() const;
+    uint64_t rawTotal() const;
+    std::vector<recorder::ParsedMessage> snapshotParsed(const std::string& type = "") const;
+    uint64_t parsedTotal() const;
+
+    bool waitForParsed(const std::string& type,
+                       uint64_t sinceIndex,
+                       uint32_t timeoutMs,
+                       recorder::ParsedMessage& message);
+
+private:
+    channel::ChannelManager& channels_;
+    std::string channelName_;
+    const std::atomic<bool>& stopRequested_;
+};
+
 class TestContext
 {
 public:
     TestContext(const std::string& source,
                 const TestParams& params,
-                protocol::MessageRegistry& registry,
-                recorder::ReceiveRecorder& rawRecorder,
-                recorder::ParsedMessageRecorder& parsedRecorder,
-                transport::ITransport* transport,
+                channel::ChannelManager& channels,
                 const std::atomic<bool>& stopRequested,
                 std::function<void(const std::string&)> logger);
 
@@ -30,6 +54,7 @@ public:
     bool stopRequested() const;
     void log(const std::string& message) const;
     double paramNumber(const std::string& name, double defaultValue) const;
+    TestChannel channel(const std::string& channelName) const;
 
     bool sendMessage(const std::string& type,
                      const std::map<std::string, double>& payload,
@@ -48,10 +73,7 @@ public:
 private:
     std::string source_;
     TestParams params_;
-    protocol::MessageRegistry& registry_;
-    recorder::ReceiveRecorder& rawRecorder_;
-    recorder::ParsedMessageRecorder& parsedRecorder_;
-    transport::ITransport* transport_;
+    channel::ChannelManager& channels_;
     const std::atomic<bool>& stopRequested_;
     std::function<void(const std::string&)> logger_;
 };

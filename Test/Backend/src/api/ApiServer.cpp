@@ -1,7 +1,6 @@
 #include "api/ApiServer.h"
 
 #include "protocol/Frame.h"
-#include "transport/TransportFactory.h"
 
 #include <algorithm>
 #include <chrono>
@@ -15,6 +14,7 @@
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <thread>
 
 #ifdef _WIN32
 #include <winsock2.h>
@@ -92,6 +92,27 @@ bool querySizeT(const std::string& path, const std::string& key, size_t& value)
 
     value = static_cast<size_t>(parsed);
     return true;
+}
+
+bool queryString(const std::string& path, const std::string& key, std::string& value)
+{
+    const size_t queryPos = path.find('?');
+    if (queryPos == std::string::npos)
+    {
+        return false;
+    }
+
+    const std::string token = key + "=";
+    size_t pos = path.find(token, queryPos + 1U);
+    if (pos == std::string::npos)
+    {
+        return false;
+    }
+
+    pos += token.size();
+    const size_t end = path.find('&', pos);
+    value = path.substr(pos, end == std::string::npos ? std::string::npos : end - pos);
+    return !value.empty();
 }
 
 size_t clampSizeT(size_t value, size_t minValue, size_t maxValue)
@@ -373,8 +394,8 @@ namespace api
 {
 ApiServer::ApiServer(unsigned port)
     : port_(port),
-      parser_(registry_, parsedRecorder_, [this](const std::string& error) { addLog(error); }),
-      testRunner_(registry_, recorder_, parsedRecorder_),
+      channels_(registry_, [this](const std::string& message) { addLog(message); }),
+      testRunner_(channels_),
       startedAt_(std::chrono::steady_clock::now())
 {
 }
@@ -454,13 +475,8 @@ bool ApiServer::run(std::string& error)
 void ApiServer::stop()
 {
     serverRunning_ = false;
-    stopReader();
     testRunner_.stop();
-    std::lock_guard<std::mutex> lock(transportMutex_);
-    if (transport_)
-    {
-        transport_->close();
-    }
+    channels_.closeAll();
 }
 
 
@@ -523,7 +539,7 @@ void ApiServer::serveEventStream(int clientFd)
 
     while (serverRunning_)
     {
-        const auto parsedMessages = parsedRecorder_.snapshot(100U);
+        const auto parsedMessages = channels_.parsedSnapshot(channel::DefaultChannelName, 100U);
 
         for (const auto& message : parsedMessages)
         {
@@ -626,6 +642,18 @@ ApiServer::HttpResponse ApiServer::route(const HttpRequest& request)
     {
         return {200, portStatusJson()};
     }
+    if (request.method == "POST" && cleanPath == "/api/channels/open")
+    {
+        return openChannel(request.body);
+    }
+    if (request.method == "POST" && cleanPath == "/api/channels/close")
+    {
+        return closeChannel(request.body);
+    }
+    if (request.method == "GET" && cleanPath == "/api/channels/status")
+    {
+        return {200, channelsStatusJson()};
+    }
     if (request.method == "POST" && cleanPath == "/api/messages/send")
     {
         return sendMessage(request.body);
@@ -641,12 +669,14 @@ ApiServer::HttpResponse ApiServer::route(const HttpRequest& request)
         entryLimit = clampSizeT(entryLimit, 0U, 200U);
         parsedLimit = clampSizeT(parsedLimit, 0U, 100U);
 
-        return {200, receivedJson(entryLimit, parsedLimit)};
+        std::string channelName = channel::DefaultChannelName;
+        queryString(request.path, "channel", channelName);
+
+        return {200, receivedJson(channelName, entryLimit, parsedLimit)};
     }
     if (request.method == "POST" && cleanPath == "/api/received/clear")
     {
-        recorder_.clear();
-        parsedRecorder_.clear();
+        channels_.clearAll();
         addLog("Received buffer cleared.");
         return {200, "{\"ok\":true}"};
     }
@@ -674,7 +704,8 @@ ApiServer::HttpResponse ApiServer::route(const HttpRequest& request)
     if (request.method == "POST" && cleanPath == "/api/tests/stop")
     {
         const auto status = testRunner_.stop();
-        return {200, "{\"ok\":true,\"state\":\"" + status.state + "\",\"message\":\"" + jsonEscape(status.message) + "\"}"};
+        return {200, "{\"ok\":true,\"id\":\"" + jsonEscape(status.id) + "\",\"state\":\"" + status.state
+                         + "\",\"message\":\"" + jsonEscape(status.message) + "\"}"};
     }
     if (request.method == "GET" && cleanPath == "/api/tests/status")
     {
@@ -686,55 +717,52 @@ ApiServer::HttpResponse ApiServer::route(const HttpRequest& request)
 
 ApiServer::HttpResponse ApiServer::openPort(const std::string& body)
 {
-    testRunner_.stop();
-
-    std::string mode = "mock";
-    std::string requestedPort = "mock";
-    double baud = 115200.0;
-    extractString(body, "mode", mode);
-    extractString(body, "port", requestedPort);
-    extractNumber(body, "baud", baud);
-
-    auto transportResult = transport::createTransport(mode);
-    mode = transportResult.mode;
-    auto nextTransport = std::move(transportResult.transport);
-
-    std::string error;
-    if (!nextTransport->open(requestedPort, static_cast<unsigned>(baud), error))
-    {
-        return {400, "{\"ok\":false,\"error\":\"" + jsonEscape(error) + "\"}"};
-    }
-
-    stopReader();
-    {
-        std::lock_guard<std::mutex> lock(transportMutex_);
-        transport_ = std::move(nextTransport);
-        transportMode_ = mode;
-        portName_ = requestedPort;
-        baudRate_ = static_cast<unsigned>(baud);
-    }
-    parser_.reset();
-    startReader();
-    addLog("Opened " + mode + " transport on " + requestedPort + ".");
-    return {200, "{\"ok\":true," + portStatusJson().substr(1U)};
+    return openChannel(body);
 }
 
 ApiServer::HttpResponse ApiServer::closePort()
 {
     testRunner_.stop();
 
-    stopReader();
+    channels_.closeChannel(channel::DefaultChannelName);
+    return {200, "{\"ok\":true}"};
+}
+
+ApiServer::HttpResponse ApiServer::openChannel(const std::string& body)
+{
+    testRunner_.stop();
+
+    std::string channelName = channel::DefaultChannelName;
+    std::string mode = "mock";
+    std::string requestedPort = "mock";
+    double baud = 115200.0;
+    extractString(body, "channel", channelName);
+    extractString(body, "name", channelName);
+    extractString(body, "mode", mode);
+    extractString(body, "port", requestedPort);
+    extractNumber(body, "baud", baud);
+
+    std::string error;
+    if (!channels_.openChannel(channelName, mode, requestedPort, static_cast<unsigned>(baud), error))
     {
-        std::lock_guard<std::mutex> lock(transportMutex_);
-        if (transport_)
-        {
-            transport_->close();
-        }
-        transport_.reset();
-        transportMode_ = "none";
-        portName_.clear();
+        return {400, "{\"ok\":false,\"error\":\"" + jsonEscape(error) + "\"}"};
     }
-    addLog("Transport closed.");
+
+    if (channelName == channel::DefaultChannelName)
+    {
+        return {200, "{\"ok\":true," + portStatusJson().substr(1U)};
+    }
+    return {200, "{\"ok\":true,\"channel\":\"" + jsonEscape(channelName) + "\"}"};
+}
+
+ApiServer::HttpResponse ApiServer::closeChannel(const std::string& body)
+{
+    testRunner_.stop();
+
+    std::string channelName = channel::DefaultChannelName;
+    extractString(body, "channel", channelName);
+    extractString(body, "name", channelName);
+    channels_.closeChannel(channelName);
     return {200, "{\"ok\":true}"};
 }
 
@@ -763,17 +791,9 @@ ApiServer::HttpResponse ApiServer::sendMessage(const std::string& body)
     }
 
     const auto frame = protocol::buildFrame(payload);
+    if (!channels_.writeBytes(channel::DefaultChannelName, frame.bytes.data(), frame.bytes.size(), error))
     {
-        std::lock_guard<std::mutex> lock(transportMutex_);
-        if (!transport_ || !transport_->isOpen())
-        {
-            return {400, "{\"ok\":false,\"error\":\"transport is not open\"}"};
-        }
-
-        if (!transport_->write(frame.bytes.data(), frame.bytes.size(), error))
-        {
-            return {400, "{\"ok\":false,\"error\":\"" + jsonEscape(error) + "\"}"};
-        }
+        return {400, "{\"ok\":false,\"error\":\"" + jsonEscape(error) + "\"}"};
     }
 
     addLog("Sent " + type + " frame: " + protocol::bytesToHex(frame.bytes));
@@ -788,33 +808,40 @@ ApiServer::HttpResponse ApiServer::exportReceived(const std::string& body)
         path = "output/received_" + nowStamp() + ".txt";
     }
 
-    std::string error;
-    if (!recorder_.exportText(path, error))
+    std::ofstream file(path);
+    if (!file)
     {
-        return {400, "{\"ok\":false,\"error\":\"" + jsonEscape(error) + "\"}"};
+        return {400, "{\"ok\":false,\"error\":\"failed to open export file\"}"};
     }
 
-    std::ofstream parsedFile(path, std::ios::app);
-    if (parsedFile)
+    const std::string channelName = channel::DefaultChannelName;
+    file << "channel,index,timestamp_ms,hex,ascii\n";
+    file << std::uppercase << std::hex << std::setfill('0');
+    for (const auto& entry : channels_.rawSnapshot(channelName))
     {
-        parsedFile << "\nparsed_index,timestamp_ms,timetag_ms,counter,icd_type,type,fields\n";
-        for (const auto& message : parsedRecorder_.snapshot())
+        const char ascii = (entry.value >= 32U && entry.value <= 126U) ? static_cast<char>(entry.value) : '.';
+        file << channelName << ',' << std::dec << entry.index << ',' << entry.timestampMs << ",0x"
+             << std::hex << std::setw(2) << static_cast<unsigned>(entry.value)
+             << std::dec << ',' << ascii << '\n';
+    }
+
+    file << "\nchannel,parsed_index,timestamp_ms,timetag_ms,counter,icd_type,type,fields\n";
+    for (const auto& message : channels_.parsedSnapshot(channelName))
+    {
+        file << channelName << ',' << message.index << ',' << message.timestampMs << ',' << message.timetagMs << ','
+             << static_cast<unsigned>(message.counter) << ',' << static_cast<unsigned>(message.icdType) << ','
+             << message.type << ',';
+        bool first = true;
+        for (const auto& field : message.values)
         {
-            parsedFile << message.index << ',' << message.timestampMs << ',' << message.timetagMs << ','
-                       << static_cast<unsigned>(message.counter) << ',' << static_cast<unsigned>(message.icdType) << ','
-                       << message.type << ',';
-            bool first = true;
-            for (const auto& field : message.values)
+            if (!first)
             {
-                if (!first)
-                {
-                    parsedFile << ';';
-                }
-                first = false;
-                parsedFile << field.first << '=' << field.second;
+                file << ';';
             }
-            parsedFile << '\n';
+            first = false;
+            file << field.first << '=' << field.second;
         }
+        file << '\n';
     }
 
     addLog("Exported received data to " + path + ".");
@@ -830,13 +857,7 @@ ApiServer::HttpResponse ApiServer::runTest(const std::string& body)
 
     const auto params = extractObjectNumbers(body, "params");
 
-    transport::ITransport* current = nullptr;
-    {
-        std::lock_guard<std::mutex> lock(transportMutex_);
-        current = transport_.get();
-    }
-
-    const auto status = testRunner_.run(testId, source, params, current, [this](const std::string& message) { addLog(message); });
+    const auto status = testRunner_.run(testId, source, params, [this](const std::string& message) { addLog(message); });
     addLog("Test " + testId + " -> " + status.state + ": " + status.message);
     const bool accepted = status.state == "running" || status.passed;
     return {200, "{\"ok\":" + boolJson(accepted) + ",\"id\":\"" + jsonEscape(status.id)
@@ -880,28 +901,54 @@ std::string ApiServer::messagesJson() const
 
 std::string ApiServer::portStatusJson() const
 {
-    std::lock_guard<std::mutex> lock(transportMutex_);
-    const bool open = transport_ && transport_->isOpen();
+    const auto status = channels_.status(channel::DefaultChannelName);
     std::ostringstream out;
-    out << "{\"open\":" << boolJson(open)
-        << ",\"mode\":\"" << transportMode_
-        << "\",\"port\":\"" << jsonEscape(portName_)
-        << "\",\"baud\":" << baudRate_
-        << ",\"readerRunning\":" << boolJson(readerRunning_)
-        << ",\"receivedBytes\":" << recorder_.totalReceived()
-        << ",\"parsedMessages\":" << parsedRecorder_.totalParsed()
+    out << "{\"open\":" << boolJson(status.open)
+        << ",\"mode\":\"" << status.mode
+        << "\",\"port\":\"" << jsonEscape(status.port)
+        << "\",\"baud\":" << status.baud
+        << ",\"readerRunning\":" << boolJson(status.readerRunning)
+        << ",\"receivedBytes\":" << status.receivedBytes
+        << ",\"parsedMessages\":" << status.parsedMessages
         << '}';
     return out.str();
 }
 
-std::string ApiServer::receivedJson(size_t entryLimit, size_t parsedLimit) const
+std::string ApiServer::channelsStatusJson() const
 {
-    const auto entries = recorder_.snapshot(entryLimit);
-    const auto parsedMessages = parsedRecorder_.snapshot(parsedLimit);
+    const auto statuses = channels_.statuses();
+    std::ostringstream out;
+    out << "{\"channels\":[";
+    for (size_t i = 0U; i < statuses.size(); ++i)
+    {
+        const auto& status = statuses[i];
+        if (i != 0U)
+        {
+            out << ',';
+        }
+        out << "{\"name\":\"" << jsonEscape(status.name)
+            << "\",\"open\":" << boolJson(status.open)
+            << ",\"mode\":\"" << status.mode
+            << "\",\"port\":\"" << jsonEscape(status.port)
+            << "\",\"baud\":" << status.baud
+            << ",\"readerRunning\":" << boolJson(status.readerRunning)
+            << ",\"receivedBytes\":" << status.receivedBytes
+            << ",\"parsedMessages\":" << status.parsedMessages
+            << '}';
+    }
+    out << "]}";
+    return out.str();
+}
+
+std::string ApiServer::receivedJson(const std::string& channelName, size_t entryLimit, size_t parsedLimit) const
+{
+    const auto entries = channels_.rawSnapshot(channelName, entryLimit);
+    const auto parsedMessages = channels_.parsedSnapshot(channelName, parsedLimit);
 
     std::ostringstream out;
-    out << "{\"totalReceived\":" << recorder_.totalReceived()
-        << ",\"buffered\":" << recorder_.size()
+    out << "{\"channel\":\"" << jsonEscape(channelName)
+        << "\",\"totalReceived\":" << channels_.rawTotal(channelName)
+        << ",\"buffered\":" << channels_.rawSize(channelName)
         << ",\"entries\":[";
 
     for (size_t i = 0U; i < entries.size(); ++i)
@@ -924,7 +971,7 @@ std::string ApiServer::receivedJson(size_t entryLimit, size_t parsedLimit) const
         out << std::dec << "\",\"ascii\":\"" << ascii << "\"}";
     }
 
-    out << "],\"parsedTotal\":" << parsedRecorder_.totalParsed()
+    out << "],\"parsedTotal\":" << channels_.parsedTotal(channelName)
         << ",\"parsedMessages\":[";
 
     for (size_t i = 0U; i < parsedMessages.size(); ++i)
@@ -1038,56 +1085,6 @@ std::string ApiServer::testStatusJson() const
     const auto status = testRunner_.status();
     return "{\"id\":\"" + jsonEscape(status.id) + "\",\"state\":\"" + status.state + "\",\"passed\":" +
            boolJson(status.passed) + ",\"message\":\"" + jsonEscape(status.message) + "\"}";
-}
-
-void ApiServer::startReader()
-{
-    readerRunning_ = true;
-    readerThread_ = std::thread([this]() {
-        uint8_t buffer[256] = {};
-        while (readerRunning_)
-        {
-            transport::ITransport* current = nullptr;
-            {
-                std::lock_guard<std::mutex> lock(transportMutex_);
-                current = transport_.get();
-            }
-
-            if (current == nullptr || !current->isOpen())
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(25));
-                continue;
-            }
-
-            std::string error;
-            const size_t count = current->read(buffer, sizeof(buffer), error);
-            if (count > 0U)
-            {
-                recorder_.append(buffer, count);
-                for (size_t i = 0U; i < count; ++i)
-                {
-                    parser_.pushByte(buffer[i]);
-                }
-                if (current->name() == "mock")
-                {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                }
-            }
-            else
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(25));
-            }
-        }
-    });
-}
-
-void ApiServer::stopReader()
-{
-    readerRunning_ = false;
-    if (readerThread_.joinable())
-    {
-        readerThread_.join();
-    }
 }
 
 void ApiServer::addLog(const std::string& message)

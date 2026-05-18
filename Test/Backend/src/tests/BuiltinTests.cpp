@@ -187,27 +187,38 @@ public:
         const double target = context.paramNumber("targetEulerZ", 90.0);
         const double tolerance = context.paramNumber("tolerance", 45.0);
         const uint32_t timeoutMs = static_cast<uint32_t>(context.paramNumber("timeoutMs", 2000.0));
+        const std::string commandChannelName =
+            context.channel("motor").exists() ? "motor" : channel::DefaultChannelName;
+        const std::string feedbackChannelName =
+            context.channel("imu").exists() ? "imu" : channel::DefaultChannelName;
+        auto commandChannel = context.channel(commandChannelName);
+        auto feedbackChannel = context.channel(feedbackChannelName);
 
         if (context.source() == "received_snapshot")
         {
-            return checkMessages(context.snapshotParsed("bno055Telemetry"), target, tolerance, "Received snapshot");
+            return checkMessages(feedbackChannel.snapshotParsed("bno055Telemetry"),
+                                 target,
+                                 tolerance,
+                                 "Received snapshot on " + feedbackChannel.name());
         }
 
-        const uint64_t sinceIndex = context.parsedTotal();
+        const uint64_t sinceIndex = feedbackChannel.parsedTotal();
         const double motor1 = context.paramNumber("motor1AngleDeg", 90.0);
         const double motor2 = context.paramNumber("motor2AngleDeg", 45.0);
 
         std::string error;
-        if (!context.sendMessage("motor", {{"motor1AngleDeg", motor1}, {"motor2AngleDeg", motor2}}, error))
+        if (!commandChannel.sendMessage("motor", {{"motor1AngleDeg", motor1}, {"motor2AngleDeg", motor2}}, error))
         {
             return {false, error};
         }
-        context.log("Motor command sent, checking BNO055 telemetry window.");
-        return checkLiveTelemetryWindow(context, sinceIndex, target, tolerance, timeoutMs);
+        context.log("Motor command sent on " + commandChannel.name() + ", checking BNO055 telemetry on " +
+                    feedbackChannel.name() + ".");
+        return checkLiveTelemetryWindow(context, feedbackChannel, sinceIndex, target, tolerance, timeoutMs);
     }
 
 private:
     static tests::TestResult checkLiveTelemetryWindow(tests::TestContext& context,
+                                                      tests::TestChannel& feedbackChannel,
                                                       uint64_t sinceIndex,
                                                       double target,
                                                       double tolerance,
@@ -224,7 +235,7 @@ private:
                 std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
 
             recorder::ParsedMessage message{};
-            if (!context.waitForParsed("bno055Telemetry", nextIndex, remainingMs, message))
+            if (!feedbackChannel.waitForParsed("bno055Telemetry", nextIndex, remainingMs, message))
             {
                 break;
             }

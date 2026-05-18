@@ -10,6 +10,7 @@ TARGET := $(POSIX_TARGET)
 SRCS := \
 	src/main.cpp \
 	src/api/ApiServer.cpp \
+	src/channel/ChannelManager.cpp \
 	src/protocol/Frame.cpp \
 	src/protocol/IcdOnlineParser.cpp \
 	src/protocol/MessageRegistry.cpp \

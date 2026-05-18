@@ -6,12 +6,8 @@
 
 namespace tests
 {
-TestRunner::TestRunner(protocol::MessageRegistry& registry,
-                       recorder::ReceiveRecorder& recorder,
-                       recorder::ParsedMessageRecorder& parsedRecorder)
-    : registry_(registry),
-      recorder_(recorder),
-      parsedRecorder_(parsedRecorder)
+TestRunner::TestRunner(channel::ChannelManager& channels)
+    : channels_(channels)
 {
 }
 
@@ -28,7 +24,6 @@ std::vector<TestInfo> TestRunner::listTests() const
 TestStatus TestRunner::run(const std::string& testId,
                            const std::string& source,
                            const TestParams& params,
-                           transport::ITransport* transport,
                            std::function<void(const std::string&)> logger)
 {
     stop();
@@ -52,8 +47,8 @@ TestStatus TestRunner::run(const std::string& testId,
     stopRequested_ = false;
     setStatus({test->id(), "running", false, "Test is running."});
 
-    workerThread_ = std::thread([this, test, selectedSource, params, transport, logger]() {
-        TestContext context(selectedSource, params, registry_, recorder_, parsedRecorder_, transport, stopRequested_, logger);
+    workerThread_ = std::thread([this, test, selectedSource, params, logger]() {
+        TestContext context(selectedSource, params, channels_, stopRequested_, logger);
         const auto result = test->run(context);
         const bool stopped = stopRequested_ && !result.passed;
         setStatus({test->id(), stopped ? "stopped" : "finished", result.passed, result.message});
