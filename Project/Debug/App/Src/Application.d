@@ -1,5 +1,12 @@
 App/Src/Application.o: ../App/Src/Application.cpp \
- ../App/Inc/Application.h \
+ ../App/Inc/Application.h ../App/Inc/GpioApplication.h \
+ ../App/Inc/CommunicationApplication.h ../App/Inc/ParserImp.h \
+ ../Utils/Types/CommunicationType.h ../Utils/Inc/OnlineParser.hpp \
+ ../Utils/Inc/CircularBuffer.hpp ../Utils/Inc/IcdUartPublisher.hpp \
+ ../Utils/Inc/IcdFrameTransmitter.hpp ../Utils/Inc/IcdFrameQueue.hpp \
+ ../Utils/Inc/FixedFrameQueue.hpp ../Utils/Inc/IcdMessageCodec.hpp \
+ ../Utils/Inc/IcdFrameBuilder.hpp ../App/Inc/ImuSensorApplication.h \
+ ../Core/Inc/bno055.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_driver.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_const.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_hal.h \
@@ -35,17 +42,24 @@ App/Src/Application.o: ../App/Src/Application.cpp \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart.h \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart_ex.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h \
- ../Utils/Inc/IcdUartPublisher.hpp ../Utils/Inc/IcdFrameTransmitter.hpp \
- ../Utils/Inc/IcdFrameQueue.hpp ../Utils/Types/CommunicationType.h \
- ../Utils/Inc/FixedFrameQueue.hpp ../Utils/Inc/IcdMessageCodec.hpp \
- ../Utils/Inc/IcdFrameBuilder.hpp ../App/Inc/ParserImp.h \
- ../Utils/Inc/OnlineParser.hpp ../Utils/Inc/CircularBuffer.hpp \
- ../Core/Inc/bno055.h ../Core/Inc/gpio.h ../Core/Inc/main.h \
- ../Core/Inc/board.h ../Core/Inc/main.h ../Core/Inc/pwm.h \
- C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_pwm/inc/drv_pwm.h \
- ../Core/Inc/motor.h ../Core/Inc/i2c.h ../Core/Inc/usart.h \
- C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_uart/inc/drv_uart.h
+ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h \
+ ../App/Inc/UartApplication.h ../App/Inc/PwmApplication.h \
+ ../App/Inc/MotorApplication.h
 ../App/Inc/Application.h:
+../App/Inc/GpioApplication.h:
+../App/Inc/CommunicationApplication.h:
+../App/Inc/ParserImp.h:
+../Utils/Types/CommunicationType.h:
+../Utils/Inc/OnlineParser.hpp:
+../Utils/Inc/CircularBuffer.hpp:
+../Utils/Inc/IcdUartPublisher.hpp:
+../Utils/Inc/IcdFrameTransmitter.hpp:
+../Utils/Inc/IcdFrameQueue.hpp:
+../Utils/Inc/FixedFrameQueue.hpp:
+../Utils/Inc/IcdMessageCodec.hpp:
+../Utils/Inc/IcdFrameBuilder.hpp:
+../App/Inc/ImuSensorApplication.h:
+../Core/Inc/bno055.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_driver.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_const.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_hal.h:
@@ -81,24 +95,7 @@ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_gpio/inc/drv_
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart.h:
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart_ex.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h:
-../Utils/Inc/IcdUartPublisher.hpp:
-../Utils/Inc/IcdFrameTransmitter.hpp:
-../Utils/Inc/IcdFrameQueue.hpp:
-../Utils/Types/CommunicationType.h:
-../Utils/Inc/FixedFrameQueue.hpp:
-../Utils/Inc/IcdMessageCodec.hpp:
-../Utils/Inc/IcdFrameBuilder.hpp:
-../App/Inc/ParserImp.h:
-../Utils/Inc/OnlineParser.hpp:
-../Utils/Inc/CircularBuffer.hpp:
-../Core/Inc/bno055.h:
-../Core/Inc/gpio.h:
-../Core/Inc/main.h:
-../Core/Inc/board.h:
-../Core/Inc/main.h:
-../Core/Inc/pwm.h:
-C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_pwm/inc/drv_pwm.h:
-../Core/Inc/motor.h:
-../Core/Inc/i2c.h:
-../Core/Inc/usart.h:
-C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_uart/inc/drv_uart.h:
+C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h:
+../App/Inc/UartApplication.h:
+../App/Inc/PwmApplication.h:
+../App/Inc/MotorApplication.h:

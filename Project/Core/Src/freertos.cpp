@@ -19,14 +19,17 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
+extern "C"
+{
 #include "FreeRTOS.h"
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
-
+}
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "Application.h"
+
 
 /* USER CODE END Includes */
 
@@ -90,89 +93,68 @@ void StartDefaultTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
-/**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
-void MX_FREERTOS_Init(void) {
-  /* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+void FREERTOS_Init(void) {
 
-  /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
-
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
   sensorSampleSemaphoreHandle = osSemaphoreNew(1U, 0U, &sensorSampleSemaphore_attributes);
-  /* USER CODE END RTOS_SEMAPHORES */
 
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
-
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
   sensorDataQueueHandle = osMessageQueueNew(SENSOR_DATA_QUEUE_LENGTH,
                                             sizeof(BNO055_Sensors_t),
                                             &sensorDataQueue_attributes);
-  /* USER CODE END RTOS_QUEUES */
 
-  /* Create the thread(s) */
-  /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
   sensorTaskHandle = osThreadNew(StartSensorTask, NULL, &sensorTask_attributes);
   sensorTimerHandle = osTimerNew(SensorTimerCallback, osTimerPeriodic, NULL, &sensorTimer_attributes);
 
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
-
-  /* USER CODE BEGIN RTOS_EVENTS */
-  /* add events, ... */
-  /* USER CODE END RTOS_EVENTS */
 
 }
 
-/* USER CODE BEGIN Header_StartDefaultTask */
-/**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_StartDefaultTask */
+//#include "IcdUartPublisher.hpp"
+//#include "IcdMessageCodec.hpp"
+#include "PayloadProcess.h"
+void PublishSensorSample(IcdUartPublisher& Publisher, const BNO055_Sensors_t* sample)
+{
+	if (sample == nullptr)
+	{
+		return;
+	}
+
+	const IcdMessage_t message = BuildBno055TelemetryMessage(sample);
+	Publisher.Publish(message);
+}
+
+
+
 void StartDefaultTask(void *argument)
 {
-  BNO055_Sensors_t sample = {0};
-  /* USER CODE BEGIN StartDefaultTask */
-  (void) argument;
 
-  Initialize();
+	Initialize();
 
-  if (sensorTimerHandle != NULL)
-  {
-    (void) osTimerStart(sensorTimerHandle, SENSOR_TIMER_PERIOD_MS);
-  }
+	if (sensorTimerHandle != NULL)
+	{
+	(void) osTimerStart(sensorTimerHandle, SENSOR_TIMER_PERIOD_MS);
+	}
 
-  for(;;)
-  {
-	while (TryDequeueSensorSample(&sample))
-    {
-      PublishSensorSample(&sample);
-    }
 
-    Loop();
-    osDelay(1U);
-  }
+	BNO055_Sensors_t sample;
+
+	for(;;)
+	{
+		while (TryDequeueSensorSample(&sample))
+		{
+			PublishSensorSample(IcdPublisher,&sample);
+		}
+		Loop();
+		osDelay(1U);
+	}
   /* USER CODE END StartDefaultTask */
 }
 
 void StartSensorTask(void *argument)
 {
-  BNO055_Sensors_t sample = {0};
+
   (void) argument;
+  BNO055_Sensors_t sample = {0};
 
   for(;;)
   {

@@ -5,12 +5,12 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 CPP_SRCS += \
+../Core/Src/freertos.cpp \
 ../Core/Src/main.cpp 
 
 C_SRCS += \
 ../Core/Src/bno055.c \
 ../Core/Src/dma.c \
-../Core/Src/freertos.c \
 ../Core/Src/gpio.c \
 ../Core/Src/i2c.c \
 ../Core/Src/motor.c \
@@ -27,7 +27,6 @@ C_SRCS += \
 C_DEPS += \
 ./Core/Src/bno055.d \
 ./Core/Src/dma.d \
-./Core/Src/freertos.d \
 ./Core/Src/gpio.d \
 ./Core/Src/i2c.d \
 ./Core/Src/motor.d \
@@ -60,6 +59,7 @@ OBJS += \
 ./Core/Src/usart.o 
 
 CPP_DEPS += \
+./Core/Src/freertos.d \
 ./Core/Src/main.d 
 
 

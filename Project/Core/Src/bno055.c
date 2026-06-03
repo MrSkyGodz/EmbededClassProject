@@ -8,13 +8,10 @@
 /* USER CODE END Header */
 
 #include "bno055.h"
-#include "i2c.h"
 #include "drv_bno055/inc/bno055_hal.h"
-
 #include "board.h"
 
 BNO_Status_t BnoStatus = {0};
-BNO055_Sensors_t BnoSensors = {0};
 BNO055_StatusRequest_t BnoStatusRequest = {.DeviceIndex = BNO055_DEVICE_INDEX,
 											.Status = &BnoStatus};
 BNO055_ReadRequest_t BnoReadRequest = {.DeviceIndex = BNO055_DEVICE_INDEX,
@@ -74,6 +71,7 @@ static BNO055_OpenParams_t g_bnoOpenParams = {
         }
     }
 };
+
 
 BNO055_Error_t BNO055_Init(void)
 {

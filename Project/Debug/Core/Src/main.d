@@ -46,10 +46,20 @@ Core/Src/main.o: ../Core/Src/main.cpp ../Core/Inc/main.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_pwm/inc/drv_pwm.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_gpio/inc/drv_gpio.h \
  ../Core/Inc/motor.h ../App/Inc/Application.h \
+ ../App/Inc/GpioApplication.h ../App/Inc/CommunicationApplication.h \
+ ../App/Inc/ParserImp.h ../Utils/Types/CommunicationType.h \
+ ../Utils/Inc/OnlineParser.hpp ../Utils/Inc/CircularBuffer.hpp \
+ ../Utils/Inc/IcdUartPublisher.hpp ../Utils/Inc/IcdFrameTransmitter.hpp \
+ ../Utils/Inc/IcdFrameQueue.hpp ../Utils/Inc/FixedFrameQueue.hpp \
+ ../Utils/Inc/IcdMessageCodec.hpp ../Utils/Inc/IcdFrameBuilder.hpp \
+ ../App/Inc/ImuSensorApplication.h ../Core/Inc/bno055.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_driver.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_const.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_hal.h \
- C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h
+ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h \
+ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h \
+ ../App/Inc/UartApplication.h ../App/Inc/PwmApplication.h \
+ ../App/Inc/MotorApplication.h
 ../Core/Inc/main.h:
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal.h:
 ../Core/Inc/stm32f7xx_hal_conf.h:
@@ -103,7 +113,25 @@ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_pwm/inc/drv_p
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_gpio/inc/drv_gpio.h:
 ../Core/Inc/motor.h:
 ../App/Inc/Application.h:
+../App/Inc/GpioApplication.h:
+../App/Inc/CommunicationApplication.h:
+../App/Inc/ParserImp.h:
+../Utils/Types/CommunicationType.h:
+../Utils/Inc/OnlineParser.hpp:
+../Utils/Inc/CircularBuffer.hpp:
+../Utils/Inc/IcdUartPublisher.hpp:
+../Utils/Inc/IcdFrameTransmitter.hpp:
+../Utils/Inc/IcdFrameQueue.hpp:
+../Utils/Inc/FixedFrameQueue.hpp:
+../Utils/Inc/IcdMessageCodec.hpp:
+../Utils/Inc/IcdFrameBuilder.hpp:
+../App/Inc/ImuSensorApplication.h:
+../Core/Inc/bno055.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_driver.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_const.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_hal.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h:
+C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h:
+../App/Inc/UartApplication.h:
+../App/Inc/PwmApplication.h:
+../App/Inc/MotorApplication.h:

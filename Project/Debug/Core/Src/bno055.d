@@ -34,7 +34,7 @@ Core/Src/bno055.o: ../Core/Src/bno055.c ../Core/Inc/bno055.h \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart.h \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart_ex.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h \
- ../Core/Inc/i2c.h ../Core/Inc/main.h ../Core/Inc/board.h \
+ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_hal.h \
  ../Core/Inc/board.h
 ../Core/Inc/bno055.h:
@@ -73,8 +73,6 @@ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_gpio/inc/drv_
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart.h:
 ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart_ex.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h:
-../Core/Inc/i2c.h:
-../Core/Inc/main.h:
-../Core/Inc/board.h:
+C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_hal.h:
 ../Core/Inc/board.h:

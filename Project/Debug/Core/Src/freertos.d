@@ -1,4 +1,4 @@
-Core/Src/freertos.o: ../Core/Src/freertos.c \
+Core/Src/freertos.o: ../Core/Src/freertos.cpp \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h \
  ../Core/Inc/FreeRTOSConfig.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h \
@@ -40,12 +40,22 @@ Core/Src/freertos.o: ../Core/Src/freertos.c \
  ../Drivers/STM32F7xx_HAL_Driver/Inc/stm32f7xx_hal_uart_ex.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h \
  ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h \
- ../App/Inc/Application.h \
+ ../App/Inc/Application.h ../App/Inc/GpioApplication.h \
+ ../App/Inc/CommunicationApplication.h ../App/Inc/ParserImp.h \
+ ../Utils/Types/CommunicationType.h ../Utils/Inc/OnlineParser.hpp \
+ ../Utils/Inc/CircularBuffer.hpp ../Utils/Inc/IcdUartPublisher.hpp \
+ ../Utils/Inc/IcdFrameTransmitter.hpp ../Utils/Inc/IcdFrameQueue.hpp \
+ ../Utils/Inc/FixedFrameQueue.hpp ../Utils/Inc/IcdMessageCodec.hpp \
+ ../Utils/Inc/IcdFrameBuilder.hpp ../App/Inc/ImuSensorApplication.h \
+ ../Core/Inc/bno055.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_driver.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_const.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_hal.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_gpio/inc/drv_gpio.h \
- C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h
+ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h \
+ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h \
+ ../App/Inc/UartApplication.h ../App/Inc/PwmApplication.h \
+ ../App/Inc/MotorApplication.h ../App/Inc/PayloadProcess.h
 ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
 ../Core/Inc/FreeRTOSConfig.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h:
@@ -89,8 +99,27 @@ Core/Src/freertos.o: ../Core/Src/freertos.c \
 ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/CMSIS_RTOS_V2/cmsis_os2.h:
 ../App/Inc/Application.h:
+../App/Inc/GpioApplication.h:
+../App/Inc/CommunicationApplication.h:
+../App/Inc/ParserImp.h:
+../Utils/Types/CommunicationType.h:
+../Utils/Inc/OnlineParser.hpp:
+../Utils/Inc/CircularBuffer.hpp:
+../Utils/Inc/IcdUartPublisher.hpp:
+../Utils/Inc/IcdFrameTransmitter.hpp:
+../Utils/Inc/IcdFrameQueue.hpp:
+../Utils/Inc/FixedFrameQueue.hpp:
+../Utils/Inc/IcdMessageCodec.hpp:
+../Utils/Inc/IcdFrameBuilder.hpp:
+../App/Inc/ImuSensorApplication.h:
+../Core/Inc/bno055.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_driver.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_const.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_hal.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_gpio/inc/drv_gpio.h:
 C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h:
+C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h:
+../App/Inc/UartApplication.h:
+../App/Inc/PwmApplication.h:
+../App/Inc/MotorApplication.h:
+../App/Inc/PayloadProcess.h:

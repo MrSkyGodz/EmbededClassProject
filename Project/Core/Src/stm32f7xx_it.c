@@ -20,7 +20,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "stm32f7xx_it.h"
-#include "Application.h"
 #include "usart.h"
 #include "drv_gpio/inc/drv_gpio.h"
 #include "drv_dma/inc/drv_dma.h"

@@ -4,10 +4,13 @@
 #include <stdint.h>
 #include "drv_gpio/inc/drv_gpio.h"
 #include "drv_i2c/inc/drv_i2c.h"
+#include "drv_bno055/inc/bno055_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+
 
 #define MAX_BO055 DRV_I2C_MAX_INSTANCES ///< Can not exceed number of i2c
 

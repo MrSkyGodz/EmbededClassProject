@@ -11,7 +11,6 @@ extern "C" {
 #define BNO055_DEVICE_INDEX 0U
 
 extern BNO_Status_t BnoStatus;
-extern BNO055_Sensors_t BnoSensors;
 extern BNO055_StatusRequest_t BnoStatusRequest;
 extern BNO055_ReadRequest_t BnoReadRequest;
 

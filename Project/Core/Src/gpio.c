@@ -65,7 +65,7 @@ DrvGpio_OpenParams_t GpioLedBlueOpenParams =
 
 void GPIO_Init(void)
 {
-//	DrvGpio_Open(&GpioButtonOpenParams);
+	DrvGpio_Open(&GpioButtonOpenParams);
 	DrvGpio_Open(&GpioLedBlueOpenParams);
 
 //	DrvGpio_Write(LED_BLUE_INDEX, GPIO_PIN_SET);

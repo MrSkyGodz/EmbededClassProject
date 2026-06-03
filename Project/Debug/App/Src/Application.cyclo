@@ -1,49 +1,13 @@
-../Utils/Inc/IcdFrameTransmitter.hpp:18:2:IcdFrameTransmitter::IcdFrameTransmitter()	1
 ../Utils/Inc/IcdFrameTransmitter.hpp:24:7:void IcdFrameTransmitter::Configure(const IcdFrameTransmitterConfig_t&)	1
 ../Utils/Inc/IcdFrameTransmitter.hpp:30:7:bool IcdFrameTransmitter::Configured() const	1
 ../Utils/Inc/IcdFrameTransmitter.hpp:35:7:bool IcdFrameTransmitter::CanStartNext()	5
 ../Utils/Inc/IcdFrameTransmitter.hpp:51:7:bool IcdFrameTransmitter::Start(const uint8_t*, uint8_t)	7
-../Utils/Inc/IcdFrameBuilder.hpp:14:16:uint8_t IcdProtocol::CalculateCrc8(const uint8_t*, uint8_t)	2
-../Utils/Inc/IcdFrameBuilder.hpp:24:13:void IcdProtocol::AppendUint32Le(uint8_t*, uint8_t*, uint32_t)	1
-../Utils/Inc/IcdFrameBuilder.hpp:32:13:void IcdProtocol::AppendFloat(uint8_t*, uint8_t*, float)	1
-../Utils/Inc/IcdFrameBuilder.hpp:38:16:uint8_t IcdProtocol::AppendHeader(uint8_t*, uint32_t, uint8_t, IcdType_e)	1
-../Utils/Inc/IcdFrameBuilder.hpp:50:16:uint8_t IcdProtocol::BuildFrame(const uint8_t*, uint8_t, uint8_t*)	1
-../Utils/Inc/IcdMessageCodec.hpp:7:16:uint8_t IcdMessageCodec::BuildPwmControlPayload(uint32_t, uint8_t, const PWMControl_t&, uint8_t*)	1
-../Utils/Inc/IcdMessageCodec.hpp:17:16:uint8_t IcdMessageCodec::BuildMotorControlPayload(uint32_t, uint8_t, const MotorControl_t&, uint8_t*)	1
-../Utils/Inc/IcdMessageCodec.hpp:28:16:uint8_t IcdMessageCodec::BuildBno055TelemetryPayload(uint32_t, uint8_t, const Bno055Telemetry_t&, uint8_t*)	1
-../Utils/Inc/IcdMessageCodec.hpp:43:16:uint8_t IcdMessageCodec::BuildPayload(const IcdMessage_t&, uint8_t*)	4
-../Utils/Inc/IcdMessageCodec.hpp:72:16:uint8_t IcdMessageCodec::BuildFrame(const IcdMessage_t&, uint8_t*)	2
-../Utils/Inc/IcdUartPublisher.hpp:10:2:IcdUartPublisher::IcdUartPublisher()	1
 ../Utils/Inc/IcdUartPublisher.hpp:14:7:void IcdUartPublisher::Configure(const IcdFrameTransmitterConfig_t&)	1
-../Utils/Inc/IcdUartPublisher.hpp:19:7:bool IcdUartPublisher::Publish(const IcdMessage_t&)	2
 ../Utils/Inc/IcdUartPublisher.hpp:31:7:void IcdUartPublisher::Process()	5
-../Utils/Inc/IcdUartPublisher.hpp:44:7:bool IcdUartPublisher::PushFrame(const uint8_t*, uint8_t)	1
-../Utils/Inc/OnlineParser.hpp:26:13:OnlineParser::~OnlineParser()	1
-../Utils/Inc/OnlineParser.hpp:26:13:virtual OnlineParser::~OnlineParser()	1
-../App/Inc/ParserImp.h:12:2:ParserImp::ParserImp()	1
-../App/Inc/ParserImp.h:18:10:virtual bool ParserImp::checkHeader(size_t, uint8_t) const	2
-../App/Inc/ParserImp.h:29:7:virtual bool ParserImp::checkCrc(const uint8_t*, uint8_t, uint8_t) const	2
-../App/Inc/ParserImp.h:40:7:virtual void ParserImp::onFrameReceived(const uint8_t*, uint8_t)	6
-../App/Src/Application.cpp:25:17:void DebugUartDataCallback(DrvUart_Event_t, const uint8_t*, size_t, void*)	2
-../App/Src/Application.cpp:40:17:void ButtonInterruptCallback(uint32_t, void*)	2
-../App/Src/Application.cpp:75:13:bool WriteIcdFrame(void*, const uint8_t*, uint8_t)	4
-../App/Src/Application.cpp:86:13:bool IsIcdFrameTxBusy(void*)	2
-../App/Src/Application.cpp:97:21:IcdMessage_t BuildBno055TelemetryMessage(const BNO055_Sensors_t*)	1
-../App/Src/Application.cpp:112:6:void Initialize()	6
-../App/Src/Application.cpp:142:6:void Loop()	4
-../App/Src/Application.cpp:168:6:bool ReadOneSensorSample(BNO055_Sensors_t*)	3
-../App/Src/Application.cpp:183:6:void PublishSensorSample(const BNO055_Sensors_t*)	2
-../App/Src/Application.cpp:195:16:int _write(int, char*, int)	4
-../Utils/Inc/FixedFrameQueue.hpp:12:2:FixedFrameQueue<MaxItemsValue, MaxBytesValue>::FixedFrameQueue() [with unsigned char MaxItemsValue = 8; unsigned char MaxBytesValue = 34]	1
+../App/Src/Application.cpp:4:6:void Initialize()	1
+../App/Src/Application.cpp:19:6:void Loop()	4
 ../Utils/Inc/FixedFrameQueue.hpp:57:7:bool FixedFrameQueue<MaxItemsValue, MaxBytesValue>::Empty() const [with unsigned char MaxItemsValue = 8; unsigned char MaxBytesValue = 34]	1
 ../Utils/Inc/FixedFrameQueue.hpp:38:17:const uint8_t* FixedFrameQueue<MaxItemsValue, MaxBytesValue>::FrontData() const [with unsigned char MaxItemsValue = 8; unsigned char MaxBytesValue = 34]	2
 ../Utils/Inc/FixedFrameQueue.hpp:43:10:uint8_t FixedFrameQueue<MaxItemsValue, MaxBytesValue>::FrontLength() const [with unsigned char MaxItemsValue = 8; unsigned char MaxBytesValue = 34]	2
 ../Utils/Inc/FixedFrameQueue.hpp:48:7:void FixedFrameQueue<MaxItemsValue, MaxBytesValue>::Pop() [with unsigned char MaxItemsValue = 8; unsigned char MaxBytesValue = 34]	2
-../Utils/Inc/FixedFrameQueue.hpp:21:7:bool FixedFrameQueue<MaxItemsValue, MaxBytesValue>::Push(const uint8_t*, uint8_t) [with unsigned char MaxItemsValue = 8; unsigned char MaxBytesValue = 34]	6
 ../Utils/Inc/FixedFrameQueue.hpp:68:17:static uint8_t FixedFrameQueue<MaxItemsValue, MaxBytesValue>::NextIndex(uint8_t) [with unsigned char MaxItemsValue = 8; unsigned char MaxBytesValue = 34]	1
-../App/Inc/ParserImp.h:9:7:ParserImp::~ParserImp()	1
-../App/Inc/ParserImp.h:9:7:virtual ParserImp::~ParserImp()	1
-../App/Src/Application.cpp:205:1:void __static_initialization_and_destruction_0()	1
-../App/Src/Application.cpp:205:1:void __static_initialization_and_destruction_1()	1
-../App/Src/Application.cpp:205:1:cpp)	1
-../App/Src/Application.cpp:205:1:cpp)	1
