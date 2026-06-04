@@ -29,6 +29,7 @@ extern "C"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "Application.h"
+#include "ImuReferenceController.h"
 
 
 /* USER CODE END Includes */
@@ -121,6 +122,12 @@ void PublishSensorSample(IcdUartPublisher& Publisher, const BNO055_Sensors_t* sa
 
 	const IcdMessage_t message = BuildBno055TelemetryMessage(sample);
 	Publisher.Publish(message);
+
+	IcdMessage_t controlStatus = {};
+	if (ImuReferenceController_Update(sample, &controlStatus))
+	{
+		Publisher.Publish(controlStatus);
+	}
 }
 
 

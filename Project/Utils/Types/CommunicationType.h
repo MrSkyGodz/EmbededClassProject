@@ -17,6 +17,9 @@ typedef enum : uint8_t
 	IcdType_PWMControl,
 	IcdType_MotorControl,
 	IcdType_Bno055Telemetry,
+	IcdType_ImuReferenceControl,
+	IcdType_ImuReferenceTuning,
+	IcdType_ImuReferenceStatus,
 	IcdType_MAX
 }IcdType_e;
 
@@ -48,11 +51,50 @@ typedef struct
 	float GyroZ;
 }Bno055Telemetry_t;
 
+typedef struct
+{
+	float TargetAzimuthDeg;
+	float TargetElevationDeg;
+	uint8_t Enable;
+	uint8_t FrameMode;
+}ImuReferenceControl_t;
+
+typedef struct
+{
+	float AzimuthKp;
+	float AzimuthKi;
+	float ElevationKp;
+	float ElevationKi;
+	uint8_t ResetIntegrator;
+}ImuReferenceTuning_t;
+
+typedef struct
+{
+	uint8_t Enable;
+	uint8_t FrameMode;
+	float TargetAzimuthDeg;
+	float TargetElevationDeg;
+	float CurrentAzimuthDeg;
+	float CurrentElevationDeg;
+	float AzimuthErrorDeg;
+	float ElevationErrorDeg;
+	float AzimuthPiOutputDeg;
+	float ElevationPiOutputDeg;
+	float Motor1AngleDeg;
+	float Motor2AngleDeg;
+	float Motor1TargetAngleDeg;
+	float Motor2TargetAngleDeg;
+	uint8_t ReverseBranch;
+}ImuReferenceStatus_t;
+
 typedef union
 {
 	PWMControl_t PWMControl;
 	MotorControl_t MotorControl;
 	Bno055Telemetry_t Bno055Telemetry;
+	ImuReferenceControl_t ImuReferenceControl;
+	ImuReferenceTuning_t ImuReferenceTuning;
+	ImuReferenceStatus_t ImuReferenceStatus;
 }IcdPayload_u;
 
 typedef struct

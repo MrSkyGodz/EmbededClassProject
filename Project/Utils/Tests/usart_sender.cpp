@@ -29,6 +29,20 @@ bool parseAngle(const char *text, float &value)
     return true;
 }
 
+bool parseFloatInRange(const char *text, float minValue, float maxValue, float &value)
+{
+    char *end = nullptr;
+    const float parsed = std::strtof(text, &end);
+
+    if ((end == text) || (*end != '\0') || (parsed < minValue) || (parsed > maxValue))
+    {
+        return false;
+    }
+
+    value = parsed;
+    return true;
+}
+
 bool parseByte(const char *text, uint8_t &value)
 {
     char *end = nullptr;
@@ -48,9 +62,13 @@ void printUsage(const char *programName)
     std::fprintf(stderr, "Usage:\n");
     std::fprintf(stderr, "  %s <port> pwm <0-255>\n", programName);
     std::fprintf(stderr, "  %s <port> motor <motor1_angle_deg> [motor2_angle_deg]\n", programName);
+    std::fprintf(stderr, "  %s <port> imuref <azimuth_deg> <elevation_deg> <enable_0_1> <frame_mode_0_1>\n", programName);
+    std::fprintf(stderr, "  %s <port> imutune <az_kp> <az_ki> <el_kp> <el_ki> <reset_0_1>\n", programName);
     std::fprintf(stderr, "Examples:\n");
     std::fprintf(stderr, "  %s COM5 pwm 128\n", programName);
     std::fprintf(stderr, "  %s COM5 motor 90.0 45.0\n", programName);
+    std::fprintf(stderr, "  %s COM5 imuref 90.0 90.0 1 1\n", programName);
+    std::fprintf(stderr, "  %s COM5 imutune 1.0 0.05 1.0 0.05 1\n", programName);
 }
 
 bool configurePwmPacket(int argc, char **argv, IcdMessage_t &packet)
@@ -119,6 +137,89 @@ bool configureMotorPacket(int argc, char **argv, IcdMessage_t &packet)
     return true;
 }
 
+bool configureImuReferencePacket(int argc, char **argv, IcdMessage_t &packet)
+{
+    float azimuthDeg = 0.0f;
+    float elevationDeg = 0.0f;
+    uint8_t enable = 0U;
+    uint8_t frameMode = 0U;
+
+    if (argc < 7)
+    {
+        std::fprintf(stderr, "Missing imu reference values\n");
+        return false;
+    }
+
+    if (!parseFloatInRange(argv[3], 0.0f, 360.0f, azimuthDeg) ||
+        !parseFloatInRange(argv[4], -180.0f, 180.0f, elevationDeg) ||
+        !parseByte(argv[5], enable) ||
+        !parseByte(argv[6], frameMode) ||
+        enable > 1U ||
+        frameMode > 1U)
+    {
+        std::fprintf(stderr, "Invalid imu reference values\n");
+        return false;
+    }
+
+    packet.Header.IcdType = IcdType_ImuReferenceControl;
+    packet.Payload.ImuReferenceControl.TargetAzimuthDeg = azimuthDeg;
+    packet.Payload.ImuReferenceControl.TargetElevationDeg = elevationDeg;
+    packet.Payload.ImuReferenceControl.Enable = enable;
+    packet.Payload.ImuReferenceControl.FrameMode = frameMode;
+
+    std::printf("ICD Type: %u, Azimuth: %.2f deg, Elevation: %.2f deg, Enable: %u, FrameMode: %u\n",
+                static_cast<unsigned>(packet.Header.IcdType),
+                static_cast<double>(packet.Payload.ImuReferenceControl.TargetAzimuthDeg),
+                static_cast<double>(packet.Payload.ImuReferenceControl.TargetElevationDeg),
+                static_cast<unsigned>(packet.Payload.ImuReferenceControl.Enable),
+                static_cast<unsigned>(packet.Payload.ImuReferenceControl.FrameMode));
+
+    return true;
+}
+
+bool configureImuTuningPacket(int argc, char **argv, IcdMessage_t &packet)
+{
+    float azimuthKp = 0.0f;
+    float azimuthKi = 0.0f;
+    float elevationKp = 0.0f;
+    float elevationKi = 0.0f;
+    uint8_t resetIntegrator = 0U;
+
+    if (argc < 8)
+    {
+        std::fprintf(stderr, "Missing imu tuning values\n");
+        return false;
+    }
+
+    if (!parseFloatInRange(argv[3], 0.0f, 100.0f, azimuthKp) ||
+        !parseFloatInRange(argv[4], 0.0f, 100.0f, azimuthKi) ||
+        !parseFloatInRange(argv[5], 0.0f, 100.0f, elevationKp) ||
+        !parseFloatInRange(argv[6], 0.0f, 100.0f, elevationKi) ||
+        !parseByte(argv[7], resetIntegrator) ||
+        resetIntegrator > 1U)
+    {
+        std::fprintf(stderr, "Invalid imu tuning values\n");
+        return false;
+    }
+
+    packet.Header.IcdType = IcdType_ImuReferenceTuning;
+    packet.Payload.ImuReferenceTuning.AzimuthKp = azimuthKp;
+    packet.Payload.ImuReferenceTuning.AzimuthKi = azimuthKi;
+    packet.Payload.ImuReferenceTuning.ElevationKp = elevationKp;
+    packet.Payload.ImuReferenceTuning.ElevationKi = elevationKi;
+    packet.Payload.ImuReferenceTuning.ResetIntegrator = resetIntegrator;
+
+    std::printf("ICD Type: %u, AzKp: %.3f, AzKi: %.3f, ElKp: %.3f, ElKi: %.3f, Reset: %u\n",
+                static_cast<unsigned>(packet.Header.IcdType),
+                static_cast<double>(packet.Payload.ImuReferenceTuning.AzimuthKp),
+                static_cast<double>(packet.Payload.ImuReferenceTuning.AzimuthKi),
+                static_cast<double>(packet.Payload.ImuReferenceTuning.ElevationKp),
+                static_cast<double>(packet.Payload.ImuReferenceTuning.ElevationKi),
+                static_cast<unsigned>(packet.Payload.ImuReferenceTuning.ResetIntegrator));
+
+    return true;
+}
+
 bool configurePacket(int argc, char **argv, IcdMessage_t &packet)
 {
     if (std::strcmp(argv[2], "pwm") == 0)
@@ -129,6 +230,16 @@ bool configurePacket(int argc, char **argv, IcdMessage_t &packet)
     if (std::strcmp(argv[2], "motor") == 0)
     {
         return configureMotorPacket(argc, argv, packet);
+    }
+
+    if (std::strcmp(argv[2], "imuref") == 0)
+    {
+        return configureImuReferencePacket(argc, argv, packet);
+    }
+
+    if (std::strcmp(argv[2], "imutune") == 0)
+    {
+        return configureImuTuningPacket(argc, argv, packet);
     }
 
     std::fprintf(stderr, "Unknown communication type: %s\n", argv[2]);

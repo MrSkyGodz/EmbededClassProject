@@ -8,6 +8,7 @@ CPP_SRCS += \
 ../App/Src/Application.cpp \
 ../App/Src/CommunicationApplication.cpp \
 ../App/Src/GpioApplication.cpp \
+../App/Src/ImuReferenceController.cpp \
 ../App/Src/ImuSensorApplication.cpp \
 ../App/Src/MotorApplication.cpp \
 ../App/Src/PwmApplication.cpp \
@@ -17,6 +18,7 @@ OBJS += \
 ./App/Src/Application.o \
 ./App/Src/CommunicationApplication.o \
 ./App/Src/GpioApplication.o \
+./App/Src/ImuReferenceController.o \
 ./App/Src/ImuSensorApplication.o \
 ./App/Src/MotorApplication.o \
 ./App/Src/PwmApplication.o \
@@ -26,6 +28,7 @@ CPP_DEPS += \
 ./App/Src/Application.d \
 ./App/Src/CommunicationApplication.d \
 ./App/Src/GpioApplication.d \
+./App/Src/ImuReferenceController.d \
 ./App/Src/ImuSensorApplication.d \
 ./App/Src/MotorApplication.d \
 ./App/Src/PwmApplication.d \
@@ -39,7 +42,7 @@ App/Src/%.o App/Src/%.su App/Src/%.cyclo: ../App/Src/%.cpp App/Src/subdir.mk
 clean: clean-App-2f-Src
 
 clean-App-2f-Src:
-	-$(RM) ./App/Src/Application.cyclo ./App/Src/Application.d ./App/Src/Application.o ./App/Src/Application.su ./App/Src/CommunicationApplication.cyclo ./App/Src/CommunicationApplication.d ./App/Src/CommunicationApplication.o ./App/Src/CommunicationApplication.su ./App/Src/GpioApplication.cyclo ./App/Src/GpioApplication.d ./App/Src/GpioApplication.o ./App/Src/GpioApplication.su ./App/Src/ImuSensorApplication.cyclo ./App/Src/ImuSensorApplication.d ./App/Src/ImuSensorApplication.o ./App/Src/ImuSensorApplication.su ./App/Src/MotorApplication.cyclo ./App/Src/MotorApplication.d ./App/Src/MotorApplication.o ./App/Src/MotorApplication.su ./App/Src/PwmApplication.cyclo ./App/Src/PwmApplication.d ./App/Src/PwmApplication.o ./App/Src/PwmApplication.su ./App/Src/UartApplication.cyclo ./App/Src/UartApplication.d ./App/Src/UartApplication.o ./App/Src/UartApplication.su
+	-$(RM) ./App/Src/Application.cyclo ./App/Src/Application.d ./App/Src/Application.o ./App/Src/Application.su ./App/Src/CommunicationApplication.cyclo ./App/Src/CommunicationApplication.d ./App/Src/CommunicationApplication.o ./App/Src/CommunicationApplication.su ./App/Src/GpioApplication.cyclo ./App/Src/GpioApplication.d ./App/Src/GpioApplication.o ./App/Src/GpioApplication.su ./App/Src/ImuReferenceController.cyclo ./App/Src/ImuReferenceController.d ./App/Src/ImuReferenceController.o ./App/Src/ImuReferenceController.su ./App/Src/ImuSensorApplication.cyclo ./App/Src/ImuSensorApplication.d ./App/Src/ImuSensorApplication.o ./App/Src/ImuSensorApplication.su ./App/Src/MotorApplication.cyclo ./App/Src/MotorApplication.d ./App/Src/MotorApplication.o ./App/Src/MotorApplication.su ./App/Src/PwmApplication.cyclo ./App/Src/PwmApplication.d ./App/Src/PwmApplication.o ./App/Src/PwmApplication.su ./App/Src/UartApplication.cyclo ./App/Src/UartApplication.d ./App/Src/UartApplication.o ./App/Src/UartApplication.su
 
 .PHONY: clean-App-2f-Src
 

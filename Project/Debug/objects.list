@@ -1,6 +1,7 @@
 "./App/Src/Application.o"
 "./App/Src/CommunicationApplication.o"
 "./App/Src/GpioApplication.o"
+"./App/Src/ImuReferenceController.o"
 "./App/Src/ImuSensorApplication.o"
 "./App/Src/MotorApplication.o"
 "./App/Src/PwmApplication.o"

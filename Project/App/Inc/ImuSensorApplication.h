@@ -14,6 +14,7 @@
 
 void StartImu();
 bool ReadOneSensorSample(BNO055_Sensors_t* sample);
+bool SetImuReferenceFrameMode(uint8_t frameMode);
 
 
 #endif /* INC_IMUSENSORAPPLICATION_H_ */

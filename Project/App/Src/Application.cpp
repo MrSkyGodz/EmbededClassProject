@@ -1,5 +1,6 @@
 
 #include "Application.h"
+#include "ImuReferenceController.h"
 
 void Initialize()
 {
@@ -9,6 +10,7 @@ void Initialize()
 		.Context = GetDebugUartTransfer(),
 	};
 	IcdPublisher.Configure(icdTxConfig);
+	ImuReferenceController_Init();
 	StartGpio();
 	StartImu();
 	UartStart();
@@ -37,8 +39,17 @@ void Loop()
 		else if (command.Header.IcdType == IcdType_MotorControl)
 		{
 			SetMotorPositionReference(command.Payload.MotorControl.Motor1AngleDeg, command.Payload.MotorControl.Motor2AngleDeg);
+			ImuReferenceController_NotifyManualMotorCommand(command.Payload.MotorControl.Motor1AngleDeg,
+			                                                command.Payload.MotorControl.Motor2AngleDeg);
+		}
+		else if (command.Header.IcdType == IcdType_ImuReferenceControl)
+		{
+			ImuReferenceController_ApplyControlCommand(&command.Payload.ImuReferenceControl);
+		}
+		else if (command.Header.IcdType == IcdType_ImuReferenceTuning)
+		{
+			ImuReferenceController_ApplyTuningCommand(&command.Payload.ImuReferenceTuning);
 		}
 	}
 }
-
 

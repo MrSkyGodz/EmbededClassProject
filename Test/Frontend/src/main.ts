@@ -532,7 +532,7 @@ async function runSingleTest(test: TestInfo): Promise<TestStatus> {
   state.testStatus = {
     id: result.id,
     state: result.state,
-    passed: result.ok && result.state !== "running",
+    passed: result.passed,
     message: result.message
   };
   state.testStatusesById[test.id] = state.testStatus;

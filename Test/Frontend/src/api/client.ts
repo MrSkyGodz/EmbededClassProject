@@ -186,13 +186,13 @@ export const apiClient = {
     request<{ tests: TestInfo[] }>("/api/tests"),
 
   runTest: (payload: { testId: string; source: TestSource; params: Record<string, number> }) =>
-    request<{ ok: boolean; id: string; state: string; message: string }>("/api/tests/run", {
+    request<TestStatus>("/api/tests/run", {
       method: "POST",
       body: JSON.stringify(payload)
     }),
 
   stopTest: () =>
-    request<{ ok: boolean; id: string; state: string; message: string }>("/api/tests/stop", {
+    request<TestStatus>("/api/tests/stop", {
       method: "POST",
       body: "{}"
     }),

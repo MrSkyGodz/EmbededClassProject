@@ -44,7 +44,7 @@ App/Src/Application.o: ../App/Src/Application.cpp \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h \
  ../App/Inc/UartApplication.h ../App/Inc/PwmApplication.h \
- ../App/Inc/MotorApplication.h
+ ../App/Inc/MotorApplication.h ../App/Inc/ImuReferenceController.h
 ../App/Inc/Application.h:
 ../App/Inc/GpioApplication.h:
 ../App/Inc/CommunicationApplication.h:
@@ -99,3 +99,4 @@ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bn
 ../App/Inc/UartApplication.h:
 ../App/Inc/PwmApplication.h:
 ../App/Inc/MotorApplication.h:
+../App/Inc/ImuReferenceController.h:

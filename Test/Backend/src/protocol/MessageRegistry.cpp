@@ -7,6 +7,9 @@ namespace
 constexpr uint8_t IcdType_PWMControl = 0U;
 constexpr uint8_t IcdType_MotorControl = 1U;
 constexpr uint8_t IcdType_Bno055Telemetry = 2U;
+constexpr uint8_t IcdType_ImuReferenceControl = 3U;
+constexpr uint8_t IcdType_ImuReferenceTuning = 4U;
+constexpr uint8_t IcdType_ImuReferenceStatus = 5U;
 constexpr size_t IcdHeaderSize = 6U;
 
 void appendUint32Le(std::vector<uint8_t>& payload, uint32_t value)
@@ -67,6 +70,39 @@ MessageRegistry::MessageRegistry()
             {"gyroX", "float", -2000.0, 2000.0},
             {"gyroY", "float", -2000.0, 2000.0},
             {"gyroZ", "float", -2000.0, 2000.0}}},
+          {"imuReferenceControl",
+           IcdType_ImuReferenceControl,
+           "command",
+           {{"targetAzimuthDeg", "float", 0.0, 360.0},
+            {"targetElevationDeg", "float", -180.0, 180.0},
+            {"enable", "uint8", 0.0, 1.0},
+            {"frameMode", "uint8", 0.0, 1.0}}},
+          {"imuReferenceTuning",
+           IcdType_ImuReferenceTuning,
+           "command",
+           {{"azimuthKp", "float", 0.0, 100.0},
+            {"azimuthKi", "float", 0.0, 100.0},
+            {"elevationKp", "float", 0.0, 100.0},
+            {"elevationKi", "float", 0.0, 100.0},
+            {"resetIntegrator", "uint8", 0.0, 1.0}}},
+          {"imuReferenceStatus",
+           IcdType_ImuReferenceStatus,
+           "telemetry",
+           {{"enable", "uint8", 0.0, 1.0},
+            {"frameMode", "uint8", 0.0, 1.0},
+            {"targetAzimuthDeg", "float", 0.0, 360.0},
+            {"targetElevationDeg", "float", -180.0, 180.0},
+            {"currentAzimuthDeg", "float", -360.0, 360.0},
+            {"currentElevationDeg", "float", -360.0, 360.0},
+            {"azimuthErrorDeg", "float", -360.0, 360.0},
+            {"elevationErrorDeg", "float", -360.0, 360.0},
+            {"azimuthPiOutputDeg", "float", -360.0, 360.0},
+            {"elevationPiOutputDeg", "float", -360.0, 360.0},
+            {"motor1AngleDeg", "float", 0.0, 180.0},
+            {"motor2AngleDeg", "float", 0.0, 180.0},
+            {"motor1TargetAngleDeg", "float", 0.0, 180.0},
+            {"motor2TargetAngleDeg", "float", 0.0, 180.0},
+            {"reverseBranch", "uint8", 0.0, 1.0}}},
       }
 {
 }
@@ -131,6 +167,72 @@ bool MessageRegistry::buildPayload(const std::string& type,
 
         appendFloat(payload, static_cast<float>(motor1));
         appendFloat(payload, static_cast<float>(motor2));
+        return true;
+    }
+
+    if (type == "imuReferenceControl")
+    {
+        double targetAzimuth = 0.0;
+        double targetElevation = 0.0;
+        double enable = 0.0;
+        double frameMode = 0.0;
+        if (!findValue(values, "targetAzimuthDeg", targetAzimuth) ||
+            !findValue(values, "targetElevationDeg", targetElevation) ||
+            !findValue(values, "enable", enable) ||
+            !findValue(values, "frameMode", frameMode))
+        {
+            error = "targetAzimuthDeg, targetElevationDeg, enable, and frameMode are required";
+            return false;
+        }
+
+        if (targetAzimuth < 0.0 || targetAzimuth > 360.0 ||
+            targetElevation < -180.0 || targetElevation > 180.0 ||
+            enable < 0.0 || enable > 1.0 ||
+            frameMode < 0.0 || frameMode > 1.0)
+        {
+            error = "imuReferenceControl values are out of range";
+            return false;
+        }
+
+        appendFloat(payload, static_cast<float>(targetAzimuth));
+        appendFloat(payload, static_cast<float>(targetElevation));
+        payload.push_back(static_cast<uint8_t>(enable));
+        payload.push_back(static_cast<uint8_t>(frameMode));
+        return true;
+    }
+
+    if (type == "imuReferenceTuning")
+    {
+        double azimuthKp = 0.0;
+        double azimuthKi = 0.0;
+        double elevationKp = 0.0;
+        double elevationKi = 0.0;
+        double resetIntegrator = 0.0;
+        if (!findValue(values, "azimuthKp", azimuthKp) ||
+            !findValue(values, "azimuthKi", azimuthKi) ||
+            !findValue(values, "elevationKp", elevationKp) ||
+            !findValue(values, "elevationKi", elevationKi) ||
+            !findValue(values, "resetIntegrator", resetIntegrator))
+        {
+            error = "azimuth/elevation PI gains and resetIntegrator are required";
+            return false;
+        }
+
+        if (azimuthKp < 0.0 || azimuthKp > 100.0 ||
+            azimuthKi < 0.0 || azimuthKi > 100.0 ||
+            elevationKp < 0.0 || elevationKp > 100.0 ||
+            elevationKi < 0.0 || elevationKi > 100.0 ||
+            resetIntegrator < 0.0 || resetIntegrator > 1.0)
+        {
+            error = "imuReferenceTuning values are out of range";
+            return false;
+        }
+
+        appendFloat(payload, static_cast<float>(azimuthKp));
+        appendFloat(payload, static_cast<float>(azimuthKi));
+        appendFloat(payload, static_cast<float>(elevationKp));
+        appendFloat(payload, static_cast<float>(elevationKi));
+        payload.push_back(static_cast<uint8_t>(resetIntegrator));
         return true;
     }
 
@@ -201,6 +303,60 @@ bool MessageRegistry::decodePayload(const uint8_t* payload,
         message.values["gyroX"] = static_cast<double>(readFloat(body + (sizeof(float) * 3U)));
         message.values["gyroY"] = static_cast<double>(readFloat(body + (sizeof(float) * 4U)));
         message.values["gyroZ"] = static_cast<double>(readFloat(body + (sizeof(float) * 5U)));
+        return true;
+    }
+
+    if (message.icdType == IcdType_ImuReferenceControl)
+    {
+        if (bodyLength != (sizeof(float) * 2U) + 2U)
+        {
+            error = "invalid imu reference control body length";
+            return false;
+        }
+        message.values["targetAzimuthDeg"] = static_cast<double>(readFloat(body));
+        message.values["targetElevationDeg"] = static_cast<double>(readFloat(body + sizeof(float)));
+        message.values["enable"] = static_cast<double>(body[sizeof(float) * 2U]);
+        message.values["frameMode"] = static_cast<double>(body[(sizeof(float) * 2U) + 1U]);
+        return true;
+    }
+
+    if (message.icdType == IcdType_ImuReferenceTuning)
+    {
+        if (bodyLength != (sizeof(float) * 4U) + 1U)
+        {
+            error = "invalid imu reference tuning body length";
+            return false;
+        }
+        message.values["azimuthKp"] = static_cast<double>(readFloat(body));
+        message.values["azimuthKi"] = static_cast<double>(readFloat(body + sizeof(float)));
+        message.values["elevationKp"] = static_cast<double>(readFloat(body + (sizeof(float) * 2U)));
+        message.values["elevationKi"] = static_cast<double>(readFloat(body + (sizeof(float) * 3U)));
+        message.values["resetIntegrator"] = static_cast<double>(body[sizeof(float) * 4U]);
+        return true;
+    }
+
+    if (message.icdType == IcdType_ImuReferenceStatus)
+    {
+        if (bodyLength != (sizeof(float) * 12U) + 3U)
+        {
+            error = "invalid imu reference status body length";
+            return false;
+        }
+        message.values["enable"] = static_cast<double>(body[0U]);
+        message.values["frameMode"] = static_cast<double>(body[1U]);
+        message.values["targetAzimuthDeg"] = static_cast<double>(readFloat(body + 2U));
+        message.values["targetElevationDeg"] = static_cast<double>(readFloat(body + 2U + sizeof(float)));
+        message.values["currentAzimuthDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 2U)));
+        message.values["currentElevationDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 3U)));
+        message.values["azimuthErrorDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 4U)));
+        message.values["elevationErrorDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 5U)));
+        message.values["azimuthPiOutputDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 6U)));
+        message.values["elevationPiOutputDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 7U)));
+        message.values["motor1AngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 8U)));
+        message.values["motor2AngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 9U)));
+        message.values["motor1TargetAngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 10U)));
+        message.values["motor2TargetAngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 11U)));
+        message.values["reverseBranch"] = static_cast<double>(body[2U + (sizeof(float) * 12U)]);
         return true;
     }
 

@@ -25,3 +25,11 @@ void StartImu()
 	BNO055_Init();
 }
 
+bool SetImuReferenceFrameMode(uint8_t frameMode)
+{
+	BNO055_OperationModeRequest_t request = {};
+	request.DeviceIndex = BNO055_DEVICE_INDEX;
+	request.Mode = (frameMode == 0U) ? IMU : NDOF;
+
+	return Bno055_Ioctl(BNO055_IOCTL_SET_OPERATION_MODE, &request) == BNO055_ERROR_NONE;
+}

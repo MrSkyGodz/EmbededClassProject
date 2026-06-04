@@ -55,7 +55,8 @@ Core/Src/freertos.o: ../Core/Src/freertos.cpp \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_i2c/inc/drv_i2c.h \
  C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bno055_types.h \
  ../App/Inc/UartApplication.h ../App/Inc/PwmApplication.h \
- ../App/Inc/MotorApplication.h ../App/Inc/PayloadProcess.h
+ ../App/Inc/MotorApplication.h ../App/Inc/ImuReferenceController.h \
+ ../App/Inc/PayloadProcess.h
 ../Middlewares/Third_Party/FreeRTOS/Source/include/FreeRTOS.h:
 ../Core/Inc/FreeRTOSConfig.h:
 ../Middlewares/Third_Party/FreeRTOS/Source/include/projdefs.h:
@@ -122,4 +123,5 @@ C:/Users/yunus/Desktop/Embbeded\ Systems/Project/deviceDrivers/drv_bno055/inc/bn
 ../App/Inc/UartApplication.h:
 ../App/Inc/PwmApplication.h:
 ../App/Inc/MotorApplication.h:
+../App/Inc/ImuReferenceController.h:
 ../App/Inc/PayloadProcess.h:

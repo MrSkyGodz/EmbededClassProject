@@ -37,6 +37,14 @@ protected:
 
 	return crcByte == calculatedCrc;
 	}
+
+	static float readFloat(const uint8_t* payload)
+	{
+		float value = 0.0F;
+		memcpy(&value, payload, sizeof(value));
+		return value;
+	}
+
 	void onFrameReceived(const uint8_t *payload, uint8_t payloadLength) override
 	{
 		if (payloadLength < ICD_HEADER_SIZE_BYTES)
@@ -71,6 +79,33 @@ protected:
 			}
 
 			memcpy((void *) &receivedCommand.Payload.MotorControl, messagePayload, sizeof(receivedCommand.Payload.MotorControl));
+		}
+		else if (receivedCommand.Header.IcdType == IcdType_ImuReferenceControl)
+		{
+			const uint8_t expectedLength = (sizeof(float) * 2U) + 2U;
+			if (messagePayloadLength != expectedLength)
+			{
+				return;
+			}
+
+			receivedCommand.Payload.ImuReferenceControl.TargetAzimuthDeg = readFloat(messagePayload);
+			receivedCommand.Payload.ImuReferenceControl.TargetElevationDeg = readFloat(messagePayload + sizeof(float));
+			receivedCommand.Payload.ImuReferenceControl.Enable = messagePayload[sizeof(float) * 2U];
+			receivedCommand.Payload.ImuReferenceControl.FrameMode = messagePayload[(sizeof(float) * 2U) + 1U];
+		}
+		else if (receivedCommand.Header.IcdType == IcdType_ImuReferenceTuning)
+		{
+			const uint8_t expectedLength = (sizeof(float) * 4U) + 1U;
+			if (messagePayloadLength != expectedLength)
+			{
+				return;
+			}
+
+			receivedCommand.Payload.ImuReferenceTuning.AzimuthKp = readFloat(messagePayload);
+			receivedCommand.Payload.ImuReferenceTuning.AzimuthKi = readFloat(messagePayload + sizeof(float));
+			receivedCommand.Payload.ImuReferenceTuning.ElevationKp = readFloat(messagePayload + (sizeof(float) * 2U));
+			receivedCommand.Payload.ImuReferenceTuning.ElevationKi = readFloat(messagePayload + (sizeof(float) * 3U));
+			receivedCommand.Payload.ImuReferenceTuning.ResetIntegrator = messagePayload[sizeof(float) * 4U];
 		}
 		else
 		{
