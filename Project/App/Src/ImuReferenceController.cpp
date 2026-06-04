@@ -26,6 +26,10 @@ constexpr float kMaxStepAzDeg = 10.0F;
 constexpr float kMaxStepElDeg = 10.0F;
 constexpr float kMaxRateAzDegPerSecond = 90.0F;
 constexpr float kMaxRateElDegPerSecond = 90.0F;
+constexpr float kWorldAzimuthAtLogicalCenterDeg = 0.0F;
+constexpr float kAzimuthFeedbackDirection = 1.0F;
+constexpr float kElevationFeedbackDirection = 1.0F;
+constexpr uint8_t kDefaultFrameMode = 1U;
 
 enum ControlMode : uint8_t
 {
@@ -120,6 +124,11 @@ float wrapDeg180(float value)
 		wrapped -= kFullTurnDeg;
 	}
 	return wrapped;
+}
+
+float worldAzimuthToLogical(float worldAzimuthDeg)
+{
+	return kAzimuthServoCenterDeg + wrapDeg180(worldAzimuthDeg - kWorldAzimuthAtLogicalCenterDeg);
 }
 
 float rateLimit(float desired, float last, float maxRateDegPerSecond)
@@ -226,8 +235,8 @@ LogicalCommand applyFeedbackCorrection(const LogicalCommand& selectedBase,
 	                                           -kMaxStepElDeg,
 	                                           kMaxStepElDeg);
 
-	command.azimuthDeg += deltaAzimuthDeg;
-	command.elevationDeg += deltaElevationDeg;
+	command.azimuthDeg = g_state.lastLogicalAzimuthDeg + (kAzimuthFeedbackDirection * deltaAzimuthDeg);
+	command.elevationDeg = g_state.lastLogicalElevationDeg + (kElevationFeedbackDirection * deltaElevationDeg);
 	g_state.azimuthOutputDeg = deltaAzimuthDeg;
 	g_state.elevationOutputDeg = deltaElevationDeg;
 	return clampLogicalCommand(command);
@@ -288,7 +297,7 @@ void ImuReferenceController_Init(void)
 	g_state.targetAzimuthDeg = 0.0F;
 	g_state.targetElevationDeg = 0.0F;
 	g_state.enable = 0U;
-	g_state.frameMode = 0U;
+	g_state.frameMode = kDefaultFrameMode;
 	g_state.lastLogicalAzimuthDeg = kAzimuthServoCenterDeg;
 	g_state.lastLogicalElevationDeg = kElevationServoCenterDeg;
 	g_state.motor1AngleDeg = logicalToPhysicalAzimuth(g_state.lastLogicalAzimuthDeg);
@@ -374,13 +383,13 @@ bool ImuReferenceController_Update(const BNO055_Sensors_t* sample, IcdMessage_t*
 	if (g_state.enable != 0U)
 	{
 		const LogicalCommand normalBase = {
-			g_state.targetAzimuthDeg,
+			worldAzimuthToLogical(g_state.targetAzimuthDeg),
 			g_state.targetElevationDeg,
 			0U,
 			ControlMode_Normal,
 		};
 		const LogicalCommand flippedBase = {
-			normalizeAzimuth360(g_state.targetAzimuthDeg + kHalfTurnDeg),
+			worldAzimuthToLogical(g_state.targetAzimuthDeg + kHalfTurnDeg),
 			kElevationServoMaxDeg - g_state.targetElevationDeg,
 			1U,
 			ControlMode_Flipped,

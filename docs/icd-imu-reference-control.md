@@ -27,6 +27,8 @@ All ICD payloads use little-endian floats and avoid C struct padding on the wire
 - `0`: BNO055 `IMU` mode.
 - `1`: BNO055 `NDOF` mode.
 
+Firmware starts BNO055 in `NDOF` mode by default, and controller status starts with `frameMode=1`. Use `frameMode=0` only when magnetometer/world heading should be ignored.
+
 Command ranges:
 
 - `targetAzimuthDeg`: normalized to `0..360`.
@@ -45,17 +47,22 @@ The controller runs once per IMU sample, currently every 100 ms.
   - `azimuthErrorDeg = wrap180(targetAzimuthDeg - currentAzimuthDeg)`
   - `elevationErrorDeg = targetElevationDeg - currentElevationDeg`
 - Normal candidate:
-  - `az = targetAzimuthDeg`
+  - `az = 90 + wrap180(targetAzimuthDeg - worldAzimuthAtLogicalCenterDeg)`
   - `el = targetElevationDeg`
 - Flipped candidate:
-  - `az = targetAzimuthDeg + 180`
+  - `az = 90 + wrap180(targetAzimuthDeg + 180 - worldAzimuthAtLogicalCenterDeg)`
   - `el = 180 - targetElevationDeg`
+- `worldAzimuthAtLogicalCenterDeg` is currently `0`, meaning logical azimuth servo center `90` is treated as world azimuth `0`.
 - Mode selection is done on base candidates before feedback correction.
 - Firmware prefers the normal candidate when it is inside servo limits; otherwise it tries flipped.
 - This keeps targets such as azimuth `0` on the normal branch instead of staying flipped from an earlier unreachable target.
 - If neither base candidate is inside limits, firmware clamps both and selects the one closest to the last logical command, then marks the mode as saturated.
 - Feedback correction is small and applied only after base selection:
   - `delta = clamp(Kp * error, -max_step, +max_step)`
+- Because there is no encoder, feedback correction is applied incrementally to the last logical command:
+  - `cmd.az = last_cmd.az - delta_az`
+  - `cmd.el = last_cmd.el + delta_el`
+- Azimuth uses negative logical feedback direction because Motor1 physical output is inverted.
 - Final command is clamped to servo limits, rate-limited against the last logical command, converted to physical motor direction, then sent to the motors.
 - `imuReferenceTuning.azimuthKp` and `elevationKp` are active correction gains.
 - `azimuthKi` and `elevationKi` are accepted for wire compatibility but do not affect control.
