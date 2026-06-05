@@ -41,7 +41,7 @@ extern "C"
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define SENSOR_TIMER_PERIOD_MS 100U
+#define SENSOR_TIMER_PERIOD_MS 50U
 #define SENSOR_DATA_QUEUE_LENGTH 4U
 
 /* USER CODE END PD */

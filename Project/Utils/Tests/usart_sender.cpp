@@ -63,12 +63,12 @@ void printUsage(const char *programName)
     std::fprintf(stderr, "  %s <port> pwm <0-255>\n", programName);
     std::fprintf(stderr, "  %s <port> motor <motor1_angle_deg> [motor2_angle_deg]\n", programName);
     std::fprintf(stderr, "  %s <port> imuref <azimuth_deg> <elevation_deg> <enable_0_1> <frame_mode_0_1>\n", programName);
-    std::fprintf(stderr, "  %s <port> imutune <az_kp> <az_ki> <el_kp> <el_ki> <reset_0_1>\n", programName);
+    std::fprintf(stderr, "  %s <port> imutune <az_kp> <el_kp>\n", programName);
     std::fprintf(stderr, "Examples:\n");
     std::fprintf(stderr, "  %s COM5 pwm 128\n", programName);
     std::fprintf(stderr, "  %s COM5 motor 90.0 45.0\n", programName);
     std::fprintf(stderr, "  %s COM5 imuref 90.0 90.0 1 1\n", programName);
-    std::fprintf(stderr, "  %s COM5 imutune 1.0 0.05 1.0 0.05 1\n", programName);
+    std::fprintf(stderr, "  %s COM5 imutune 1.0 1.0\n", programName);
 }
 
 bool configurePwmPacket(int argc, char **argv, IcdMessage_t &packet)
@@ -180,23 +180,16 @@ bool configureImuReferencePacket(int argc, char **argv, IcdMessage_t &packet)
 bool configureImuTuningPacket(int argc, char **argv, IcdMessage_t &packet)
 {
     float azimuthKp = 0.0f;
-    float azimuthKi = 0.0f;
     float elevationKp = 0.0f;
-    float elevationKi = 0.0f;
-    uint8_t resetIntegrator = 0U;
 
-    if (argc < 8)
+    if (argc < 5)
     {
         std::fprintf(stderr, "Missing imu tuning values\n");
         return false;
     }
 
     if (!parseFloatInRange(argv[3], 0.0f, 100.0f, azimuthKp) ||
-        !parseFloatInRange(argv[4], 0.0f, 100.0f, azimuthKi) ||
-        !parseFloatInRange(argv[5], 0.0f, 100.0f, elevationKp) ||
-        !parseFloatInRange(argv[6], 0.0f, 100.0f, elevationKi) ||
-        !parseByte(argv[7], resetIntegrator) ||
-        resetIntegrator > 1U)
+        !parseFloatInRange(argv[4], 0.0f, 100.0f, elevationKp))
     {
         std::fprintf(stderr, "Invalid imu tuning values\n");
         return false;
@@ -204,18 +197,12 @@ bool configureImuTuningPacket(int argc, char **argv, IcdMessage_t &packet)
 
     packet.Header.IcdType = IcdType_ImuReferenceTuning;
     packet.Payload.ImuReferenceTuning.AzimuthKp = azimuthKp;
-    packet.Payload.ImuReferenceTuning.AzimuthKi = azimuthKi;
     packet.Payload.ImuReferenceTuning.ElevationKp = elevationKp;
-    packet.Payload.ImuReferenceTuning.ElevationKi = elevationKi;
-    packet.Payload.ImuReferenceTuning.ResetIntegrator = resetIntegrator;
 
-    std::printf("ICD Type: %u, AzKp: %.3f, AzKi: %.3f, ElKp: %.3f, ElKi: %.3f, Reset: %u\n",
+    std::printf("ICD Type: %u, AzKp: %.3f, ElKp: %.3f\n",
                 static_cast<unsigned>(packet.Header.IcdType),
                 static_cast<double>(packet.Payload.ImuReferenceTuning.AzimuthKp),
-                static_cast<double>(packet.Payload.ImuReferenceTuning.AzimuthKi),
-                static_cast<double>(packet.Payload.ImuReferenceTuning.ElevationKp),
-                static_cast<double>(packet.Payload.ImuReferenceTuning.ElevationKi),
-                static_cast<unsigned>(packet.Payload.ImuReferenceTuning.ResetIntegrator));
+                static_cast<double>(packet.Payload.ImuReferenceTuning.ElevationKp));
 
     return true;
 }

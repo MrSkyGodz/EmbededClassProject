@@ -22,6 +22,12 @@ struct MotorPosition
     double motor2;
 };
 
+struct OrientationTarget
+{
+    double azimuthDeg;
+    double elevationDeg;
+};
+
 bool containsFrameHeader(const std::vector<uint8_t>& bytes)
 {
     for (size_t i = 1U; i < bytes.size(); ++i)
@@ -75,6 +81,11 @@ std::string motorChannelName(tests::TestContext& context)
     return context.channel("motor").exists() ? "motor" : channel::DefaultChannelName;
 }
 
+std::string controlChannelName(tests::TestContext& context)
+{
+    return context.channel("control").exists() ? "control" : channel::DefaultChannelName;
+}
+
 std::string feedbackChannelName(tests::TestContext& context)
 {
     return context.channel("imu").exists() ? "imu" : channel::DefaultChannelName;
@@ -83,6 +94,32 @@ std::string feedbackChannelName(tests::TestContext& context)
 bool sendMotorCommand(tests::TestChannel& channel, double motor1, double motor2, std::string& error)
 {
     return channel.sendMessage("motor", {{"motor1AngleDeg", motor1}, {"motor2AngleDeg", motor2}}, error);
+}
+
+bool sendImuReferenceControl(tests::TestChannel& channel,
+                             double targetAzimuthDeg,
+                             double targetElevationDeg,
+                             double enable,
+                             double frameMode,
+                             std::string& error)
+{
+    return channel.sendMessage("imuReferenceControl",
+                               {{"targetAzimuthDeg", targetAzimuthDeg},
+                                {"targetElevationDeg", targetElevationDeg},
+                                {"enable", enable},
+                                {"frameMode", frameMode}},
+                               error);
+}
+
+bool sendImuReferenceTuning(tests::TestChannel& channel,
+                            double azimuthKp,
+                            double elevationKp,
+                            std::string& error)
+{
+    return channel.sendMessage("imuReferenceTuning",
+                               {{"azimuthKp", azimuthKp},
+                                {"elevationKp", elevationKp}},
+                               error);
 }
 
 bool valueOf(const recorder::ParsedMessage& message, const std::string& fieldName, double& value, std::string& error)
@@ -209,6 +246,109 @@ bool waitForStableCalibrationFields(tests::TestContext& context,
         sawCalibration = true;
 
         if (!calibrationFieldsComplete(message, fieldNames))
+        {
+            stableStart = std::chrono::steady_clock::time_point{};
+            continue;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        if (stableStart == std::chrono::steady_clock::time_point{})
+        {
+            stableStart = now;
+        }
+
+        const auto stableMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - stableStart).count();
+        if (stableMs >= static_cast<int64_t>(requiredStableMs))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool orientationTargetReached(const recorder::ParsedMessage& message,
+                              double targetAzimuthDeg,
+                              double targetElevationDeg,
+                              double frameMode,
+                              double toleranceDeg)
+{
+    const auto targetAzimuth = message.values.find("targetAzimuthDeg");
+    const auto targetElevation = message.values.find("targetElevationDeg");
+    const auto enable = message.values.find("enable");
+    const auto statusFrameMode = message.values.find("frameMode");
+    const auto azimuthError = message.values.find("azimuthErrorDeg");
+    const auto elevationError = message.values.find("elevationErrorDeg");
+
+    if (targetAzimuth == message.values.end() ||
+        targetElevation == message.values.end() ||
+        enable == message.values.end() ||
+        statusFrameMode == message.values.end() ||
+        azimuthError == message.values.end() ||
+        elevationError == message.values.end())
+    {
+        return false;
+    }
+
+    return (enable->second >= 1.0) &&
+           (std::fabs(statusFrameMode->second - frameMode) <= 0.5) &&
+           (std::fabs(wrap180(targetAzimuth->second - targetAzimuthDeg)) <= 0.5) &&
+           (std::fabs(targetElevation->second - targetElevationDeg) <= 0.5) &&
+           (std::fabs(azimuthError->second) <= toleranceDeg) &&
+           (std::fabs(elevationError->second) <= toleranceDeg);
+}
+
+std::string orientationSummary(const recorder::ParsedMessage& message)
+{
+    std::ostringstream out;
+    const auto append = [&](const char* name) {
+        const auto it = message.values.find(name);
+        if (it != message.values.end())
+        {
+            out << " " << name << "=" << it->second;
+        }
+    };
+
+    append("targetAzimuthDeg");
+    append("targetElevationDeg");
+    append("currentAzimuthDeg");
+    append("currentElevationDeg");
+    append("azimuthErrorDeg");
+    append("elevationErrorDeg");
+    append("motor1AngleDeg");
+    append("motor2AngleDeg");
+    return out.str();
+}
+
+bool waitForStableOrientationTarget(tests::TestContext& context,
+                                    tests::TestChannel& feedbackChannel,
+                                    uint64_t& nextIndex,
+                                    double targetAzimuthDeg,
+                                    double targetElevationDeg,
+                                    double frameMode,
+                                    double toleranceDeg,
+                                    uint32_t timeoutMs,
+                                    uint32_t requiredStableMs,
+                                    recorder::ParsedMessage& lastStatus,
+                                    bool& sawStatus)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+    auto stableStart = std::chrono::steady_clock::time_point{};
+
+    while (!context.stopRequested() && std::chrono::steady_clock::now() < deadline)
+    {
+        const uint32_t waitMs = std::min<uint32_t>(remainingMsUntil(deadline), 100U);
+        recorder::ParsedMessage message{};
+        if (!feedbackChannel.waitForParsed("imuReferenceStatus", nextIndex, waitMs, message))
+        {
+            continue;
+        }
+
+        nextIndex = message.index + 1U;
+        lastStatus = message;
+        sawStatus = true;
+
+        if (!orientationTargetReached(message, targetAzimuthDeg, targetElevationDeg, frameMode, toleranceDeg))
         {
             stableStart = std::chrono::steady_clock::time_point{};
             continue;
@@ -629,6 +769,133 @@ public:
     }
 };
 
+class ImuReferenceOrientationTargetsTest final : public tests::ITestCase
+{
+public:
+    std::string id() const override { return "imu_reference_orientation_targets"; }
+    std::string name() const override { return "IMU reference orientation targets"; }
+    std::string defaultSource() const override { return "received_live"; }
+    std::vector<std::string> allowedSources() const override { return {"received_live"}; }
+
+    std::vector<tests::TestParameter> parameters() const override
+    {
+        return {
+            {"frameMode", "Frame mode", "number", 1.0, 0.0, 1.0},
+            {"azimuthKp", "Azimuth Kp", "number", 0.2, 0.0, 100.0},
+            {"elevationKp", "Elevation Kp", "number", 0.2, 0.0, 100.0},
+            {"toleranceDeg", "Tolerance deg", "number", 8.0, 0.5, 45.0},
+            {"targetTimeoutMs", "Target timeout ms", "number", 20000.0, 1000.0, 120000.0},
+            {"stableMs", "Stable ms", "number", 1000.0, 100.0, 10000.0},
+            {"target1AzimuthDeg", "Target 1 azimuth", "number", 0.0, 0.0, 360.0},
+            {"target1ElevationDeg", "Target 1 elevation", "number", 0.0, -180.0, 180.0},
+            {"target2AzimuthDeg", "Target 2 azimuth", "number", 50.0, 0.0, 360.0},
+            {"target2ElevationDeg", "Target 2 elevation", "number", 30.0, -180.0, 180.0},
+            {"target3AzimuthDeg", "Target 3 azimuth", "number", 120.0, 0.0, 360.0},
+            {"target3ElevationDeg", "Target 3 elevation", "number", 60.0, -180.0, 180.0},
+            {"disableAfter", "Disable after", "number", 1.0, 0.0, 1.0},
+        };
+    }
+
+    tests::TestResult run(tests::TestContext& context) override
+    {
+        const double frameMode = std::round(context.paramNumber("frameMode", 1.0));
+        const double azimuthKp = context.paramNumber("azimuthKp", 0.2);
+        const double elevationKp = context.paramNumber("elevationKp", 0.2);
+        const double toleranceDeg = context.paramNumber("toleranceDeg", 8.0);
+        const uint32_t targetTimeoutMs = static_cast<uint32_t>(context.paramNumber("targetTimeoutMs", 20000.0));
+        const uint32_t stableMs = static_cast<uint32_t>(context.paramNumber("stableMs", 1000.0));
+        const bool disableAfter = context.paramNumber("disableAfter", 1.0) >= 0.5;
+        const std::array<OrientationTarget, 3U> targets = {{
+            {context.paramNumber("target1AzimuthDeg", 0.0), context.paramNumber("target1ElevationDeg", 0.0)},
+            {context.paramNumber("target2AzimuthDeg", 50.0), context.paramNumber("target2ElevationDeg", 30.0)},
+            {context.paramNumber("target3AzimuthDeg", 120.0), context.paramNumber("target3ElevationDeg", 60.0)},
+        }};
+
+        auto commandChannel = context.channel(controlChannelName(context));
+        auto feedbackChannel = context.channel(feedbackChannelName(context));
+        uint64_t nextIndex = feedbackChannel.parsedTotal();
+        std::string error;
+
+        if (!sendImuReferenceTuning(commandChannel, azimuthKp, elevationKp, error))
+        {
+            return {false, error};
+        }
+
+        recorder::ParsedMessage lastStatus{};
+        bool sawStatus = false;
+        size_t targetIndex = 0U;
+
+        for (const auto& target : targets)
+        {
+            ++targetIndex;
+            if (context.stopRequested())
+            {
+                disableReferenceIfRequested(commandChannel, disableAfter, frameMode);
+                return {false, "Orientation target test stopped."};
+            }
+
+            if (!sendImuReferenceControl(commandChannel,
+                                         target.azimuthDeg,
+                                         target.elevationDeg,
+                                         1.0,
+                                         frameMode,
+                                         error))
+            {
+                disableReferenceIfRequested(commandChannel, disableAfter, frameMode);
+                return {false, error};
+            }
+
+            std::ostringstream log;
+            log << "IMU reference target " << targetIndex << " az=" << target.azimuthDeg
+                << " el=" << target.elevationDeg << ".";
+            context.log(log.str());
+
+            if (!waitForStableOrientationTarget(context,
+                                                feedbackChannel,
+                                                nextIndex,
+                                                target.azimuthDeg,
+                                                target.elevationDeg,
+                                                frameMode,
+                                                toleranceDeg,
+                                                targetTimeoutMs,
+                                                stableMs,
+                                                lastStatus,
+                                                sawStatus))
+            {
+                disableReferenceIfRequested(commandChannel, disableAfter, frameMode);
+                if (!sawStatus)
+                {
+                    return {false, "No imuReferenceStatus telemetry received during orientation target test."};
+                }
+
+                std::ostringstream message;
+                message << "Target " << targetIndex << " did not settle within tolerance=" << toleranceDeg
+                        << "." << orientationSummary(lastStatus);
+                return {false, message.str()};
+            }
+        }
+
+        disableReferenceIfRequested(commandChannel, disableAfter, frameMode);
+
+        std::ostringstream message;
+        message << targets.size() << " IMU reference targets reached within tolerance=" << toleranceDeg
+                << "." << orientationSummary(lastStatus);
+        return {true, message.str()};
+    }
+
+private:
+    static void disableReferenceIfRequested(tests::TestChannel& commandChannel, bool disableAfter, double frameMode)
+    {
+        if (!disableAfter)
+        {
+            return;
+        }
+
+        std::string ignoredError;
+        (void) sendImuReferenceControl(commandChannel, 0.0, 0.0, 0.0, frameMode, ignoredError);
+    }
+};
+
 class ImuAxisLimitRotationTest final : public tests::ITestCase
 {
 public:
@@ -905,6 +1172,7 @@ std::vector<std::unique_ptr<ITestCase>> createBuiltinTests()
     tests.push_back(std::make_unique<MotorFrameWriteTest>());
     tests.push_back(std::make_unique<ImuCalibrationSweepTest>());
     tests.push_back(std::make_unique<ImuManualAccSystemCalibrationTest>());
+    tests.push_back(std::make_unique<ImuReferenceOrientationTargetsTest>());
     tests.push_back(std::make_unique<ImuAxisLimitRotationTest>());
     tests.push_back(std::make_unique<ReceivedHasDataTest>());
     tests.push_back(std::make_unique<ReceivedContainsFrameHeaderTest>());
