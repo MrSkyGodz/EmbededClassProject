@@ -20,6 +20,7 @@ typedef enum : uint8_t
 	IcdType_ImuReferenceControl,
 	IcdType_ImuReferenceTuning,
 	IcdType_ImuReferenceStatus,
+	IcdType_Bno055CalibrationStatus,
 	IcdType_MAX
 }IcdType_e;
 
@@ -50,6 +51,15 @@ typedef struct
 	float GyroY;
 	float GyroZ;
 }Bno055Telemetry_t;
+
+typedef struct
+{
+	uint8_t System;
+	uint8_t Gyro;
+	uint8_t Acc;
+	uint8_t Mag;
+	uint8_t FullyCalibrated;
+}Bno055CalibrationStatus_t;
 
 typedef struct
 {
@@ -92,6 +102,7 @@ typedef union
 	PWMControl_t PWMControl;
 	MotorControl_t MotorControl;
 	Bno055Telemetry_t Bno055Telemetry;
+	Bno055CalibrationStatus_t Bno055CalibrationStatus;
 	ImuReferenceControl_t ImuReferenceControl;
 	ImuReferenceTuning_t ImuReferenceTuning;
 	ImuReferenceStatus_t ImuReferenceStatus;

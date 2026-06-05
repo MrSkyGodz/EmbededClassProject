@@ -6,20 +6,22 @@
 ../Utils/Inc/IcdMessageCodec.hpp:7:16:uint8_t IcdMessageCodec::BuildPwmControlPayload(uint32_t, uint8_t, const PWMControl_t&, uint8_t*)	1
 ../Utils/Inc/IcdMessageCodec.hpp:17:16:uint8_t IcdMessageCodec::BuildMotorControlPayload(uint32_t, uint8_t, const MotorControl_t&, uint8_t*)	1
 ../Utils/Inc/IcdMessageCodec.hpp:28:16:uint8_t IcdMessageCodec::BuildBno055TelemetryPayload(uint32_t, uint8_t, const Bno055Telemetry_t&, uint8_t*)	1
-../Utils/Inc/IcdMessageCodec.hpp:43:16:uint8_t IcdMessageCodec::BuildImuReferenceControlPayload(uint32_t, uint8_t, const ImuReferenceControl_t&, uint8_t*)	1
-../Utils/Inc/IcdMessageCodec.hpp:56:16:uint8_t IcdMessageCodec::BuildImuReferenceTuningPayload(uint32_t, uint8_t, const ImuReferenceTuning_t&, uint8_t*)	1
-../Utils/Inc/IcdMessageCodec.hpp:70:16:uint8_t IcdMessageCodec::BuildImuReferenceStatusPayload(uint32_t, uint8_t, const ImuReferenceStatus_t&, uint8_t*)	1
-../Utils/Inc/IcdMessageCodec.hpp:94:16:uint8_t IcdMessageCodec::BuildPayload(const IcdMessage_t&, uint8_t*)	7
-../Utils/Inc/IcdMessageCodec.hpp:147:16:uint8_t IcdMessageCodec::BuildFrame(const IcdMessage_t&, uint8_t*)	2
+../Utils/Inc/IcdMessageCodec.hpp:43:16:uint8_t IcdMessageCodec::BuildBno055CalibrationStatusPayload(uint32_t, uint8_t, const Bno055CalibrationStatus_t&, uint8_t*)	1
+../Utils/Inc/IcdMessageCodec.hpp:57:16:uint8_t IcdMessageCodec::BuildImuReferenceControlPayload(uint32_t, uint8_t, const ImuReferenceControl_t&, uint8_t*)	1
+../Utils/Inc/IcdMessageCodec.hpp:70:16:uint8_t IcdMessageCodec::BuildImuReferenceTuningPayload(uint32_t, uint8_t, const ImuReferenceTuning_t&, uint8_t*)	1
+../Utils/Inc/IcdMessageCodec.hpp:84:16:uint8_t IcdMessageCodec::BuildImuReferenceStatusPayload(uint32_t, uint8_t, const ImuReferenceStatus_t&, uint8_t*)	1
+../Utils/Inc/IcdMessageCodec.hpp:108:16:uint8_t IcdMessageCodec::BuildPayload(const IcdMessage_t&, uint8_t*)	8
+../Utils/Inc/IcdMessageCodec.hpp:169:16:uint8_t IcdMessageCodec::BuildFrame(const IcdMessage_t&, uint8_t*)	2
 ../Utils/Inc/IcdUartPublisher.hpp:19:7:bool IcdUartPublisher::Publish(const IcdMessage_t&)	2
 ../Utils/Inc/IcdUartPublisher.hpp:44:7:bool IcdUartPublisher::PushFrame(const uint8_t*, uint8_t)	1
 ../Core/Src/freertos.cpp:98:6:void FREERTOS_Init()	1
 ../App/Inc/PayloadProcess.h:15:21:IcdMessage_t BuildBno055TelemetryMessage(const BNO055_Sensors_t*)	1
-../Core/Src/freertos.cpp:116:6:void PublishSensorSample(IcdUartPublisher&, const BNO055_Sensors_t*)	3
-../Core/Src/freertos.cpp:135:6:void StartDefaultTask(void*)	3
-../Core/Src/freertos.cpp:160:6:void StartSensorTask(void*)	3
-../Core/Src/freertos.cpp:178:6:void SensorTimerCallback(void*)	2
-../Core/Src/freertos.cpp:188:13:bool QueueSensorSample(const BNO055_Sensors_t*)	5
-../Core/Src/freertos.cpp:210:13:bool TryDequeueSensorSample(BNO055_Sensors_t*)	3
+../App/Inc/PayloadProcess.h:31:21:IcdMessage_t BuildBno055CalibrationStatusMessage(const Calib_status_t*, bool)	2
+../Core/Src/freertos.cpp:116:6:void PublishSensorSample(IcdUartPublisher&, const BNO055_Sensors_t*)	4
+../Core/Src/freertos.cpp:143:6:void StartDefaultTask(void*)	3
+../Core/Src/freertos.cpp:168:6:void StartSensorTask(void*)	3
+../Core/Src/freertos.cpp:186:6:void SensorTimerCallback(void*)	2
+../Core/Src/freertos.cpp:196:13:bool QueueSensorSample(const BNO055_Sensors_t*)	5
+../Core/Src/freertos.cpp:218:13:bool TryDequeueSensorSample(BNO055_Sensors_t*)	3
 ../Utils/Inc/FixedFrameQueue.hpp:21:7:bool FixedFrameQueue<MaxItemsValue, MaxBytesValue>::Push(const uint8_t*, uint8_t) [with unsigned char MaxItemsValue = 8; unsigned char MaxBytesValue = 66]	6
 ../Utils/Inc/FixedFrameQueue.hpp:68:17:static uint8_t FixedFrameQueue<MaxItemsValue, MaxBytesValue>::NextIndex(uint8_t) [with unsigned char MaxItemsValue = 8; unsigned char MaxBytesValue = 66]	1

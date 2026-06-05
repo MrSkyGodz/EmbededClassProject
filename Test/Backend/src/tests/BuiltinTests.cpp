@@ -2,14 +2,26 @@
 
 #include "tests/TestContext.h"
 
+#include <algorithm>
+#include <array>
 #include <cmath>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <sstream>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 namespace
 {
+struct MotorPosition
+{
+    double motor1;
+    double motor2;
+};
+
 bool containsFrameHeader(const std::vector<uint8_t>& bytes)
 {
     for (size_t i = 1U; i < bytes.size(); ++i)
@@ -22,29 +34,233 @@ bool containsFrameHeader(const std::vector<uint8_t>& bytes)
     return false;
 }
 
-bool fieldWithin(const recorder::ParsedMessage& message,
-                 const std::string& fieldName,
-                 double expected,
-                 double tolerance,
-                 std::string& mismatch)
+double wrap180(double angleDeg)
+{
+    while (angleDeg > 180.0)
+    {
+        angleDeg -= 360.0;
+    }
+    while (angleDeg < -180.0)
+    {
+        angleDeg += 360.0;
+    }
+    return angleDeg;
+}
+
+uint32_t remainingMsUntil(const std::chrono::steady_clock::time_point& deadline)
+{
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= deadline)
+    {
+        return 0U;
+    }
+
+    const auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
+    return static_cast<uint32_t>(std::max<int64_t>(remaining, 1));
+}
+
+bool sleepWithStop(tests::TestContext& context, uint32_t durationMs)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(durationMs);
+    while (!context.stopRequested() && std::chrono::steady_clock::now() < deadline)
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    }
+
+    return !context.stopRequested();
+}
+
+std::string motorChannelName(tests::TestContext& context)
+{
+    return context.channel("motor").exists() ? "motor" : channel::DefaultChannelName;
+}
+
+std::string feedbackChannelName(tests::TestContext& context)
+{
+    return context.channel("imu").exists() ? "imu" : channel::DefaultChannelName;
+}
+
+bool sendMotorCommand(tests::TestChannel& channel, double motor1, double motor2, std::string& error)
+{
+    return channel.sendMessage("motor", {{"motor1AngleDeg", motor1}, {"motor2AngleDeg", motor2}}, error);
+}
+
+bool valueOf(const recorder::ParsedMessage& message, const std::string& fieldName, double& value, std::string& error)
 {
     const auto it = message.values.find(fieldName);
     if (it == message.values.end())
     {
-        mismatch = "Expected field was not found: " + fieldName;
+        error = "Expected field was not found: " + fieldName;
         return false;
     }
 
-    const double delta = std::fabs(it->second - expected);
-    if (delta > tolerance)
+    value = it->second;
+    return true;
+}
+
+bool calibrationComplete(const recorder::ParsedMessage& message)
+{
+    const auto system = message.values.find("system");
+    const auto gyro = message.values.find("gyro");
+    const auto acc = message.values.find("acc");
+    const auto mag = message.values.find("mag");
+    const auto fullyCalibrated = message.values.find("fullyCalibrated");
+
+    return (system != message.values.end()) &&
+           (gyro != message.values.end()) &&
+           (acc != message.values.end()) &&
+           (mag != message.values.end()) &&
+           (fullyCalibrated != message.values.end()) &&
+           (system->second >= 3.0) &&
+           (gyro->second >= 3.0) &&
+           (acc->second >= 3.0) &&
+           (mag->second >= 3.0) &&
+           (fullyCalibrated->second >= 1.0);
+}
+
+bool calibrationFieldComplete(const recorder::ParsedMessage& message, const std::string& fieldName)
+{
+    if (fieldName == "fullyCalibrated")
     {
-        std::ostringstream out;
-        out << fieldName << " expected " << expected << " got " << it->second << " tolerance " << tolerance;
-        mismatch = out.str();
-        return false;
+        return calibrationComplete(message);
+    }
+
+    const auto it = message.values.find(fieldName);
+    return (it != message.values.end()) && (it->second >= 3.0);
+}
+
+bool calibrationFieldsComplete(const recorder::ParsedMessage& message, const std::vector<std::string>& fieldNames)
+{
+    for (const auto& fieldName : fieldNames)
+    {
+        if (!calibrationFieldComplete(message, fieldName))
+        {
+            return false;
+        }
     }
 
     return true;
+}
+
+std::string calibrationSummary(const recorder::ParsedMessage& message)
+{
+    std::ostringstream out;
+    out << "system=" << message.values.at("system")
+        << " gyro=" << message.values.at("gyro")
+        << " acc=" << message.values.at("acc")
+        << " mag=" << message.values.at("mag")
+        << " fullyCalibrated=" << message.values.at("fullyCalibrated");
+    return out.str();
+}
+
+bool waitForCalibrationFieldDuring(tests::TestContext& context,
+                                   tests::TestChannel& feedbackChannel,
+                                   uint64_t& nextIndex,
+                                   uint32_t durationMs,
+                                   const std::string& fieldName,
+                                   recorder::ParsedMessage& lastCalibration,
+                                   bool& sawCalibration)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(durationMs);
+    while (!context.stopRequested() && std::chrono::steady_clock::now() < deadline)
+    {
+        const uint32_t waitMs = std::min<uint32_t>(remainingMsUntil(deadline), 100U);
+        recorder::ParsedMessage message{};
+        if (!feedbackChannel.waitForParsed("bno055CalibrationStatus", nextIndex, waitMs, message))
+        {
+            continue;
+        }
+
+        nextIndex = message.index + 1U;
+        lastCalibration = message;
+        sawCalibration = true;
+        if (calibrationFieldComplete(message, fieldName))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool waitForStableCalibrationFields(tests::TestContext& context,
+                                    tests::TestChannel& feedbackChannel,
+                                    uint64_t& nextIndex,
+                                    uint32_t durationMs,
+                                    uint32_t requiredStableMs,
+                                    const std::vector<std::string>& fieldNames,
+                                    recorder::ParsedMessage& lastCalibration,
+                                    bool& sawCalibration)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(durationMs);
+    auto stableStart = std::chrono::steady_clock::time_point{};
+
+    while (!context.stopRequested() && std::chrono::steady_clock::now() < deadline)
+    {
+        const uint32_t waitMs = std::min<uint32_t>(remainingMsUntil(deadline), 100U);
+        recorder::ParsedMessage message{};
+        if (!feedbackChannel.waitForParsed("bno055CalibrationStatus", nextIndex, waitMs, message))
+        {
+            continue;
+        }
+
+        nextIndex = message.index + 1U;
+        lastCalibration = message;
+        sawCalibration = true;
+
+        if (!calibrationFieldsComplete(message, fieldNames))
+        {
+            stableStart = std::chrono::steady_clock::time_point{};
+            continue;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        if (stableStart == std::chrono::steady_clock::time_point{})
+        {
+            stableStart = now;
+        }
+
+        const auto stableMs = std::chrono::duration_cast<std::chrono::milliseconds>(now - stableStart).count();
+        if (stableMs >= static_cast<int64_t>(requiredStableMs))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool waitForLatestParsed(tests::TestContext& context,
+                         tests::TestChannel& feedbackChannel,
+                         const std::string& type,
+                         uint64_t& nextIndex,
+                         uint32_t windowMs,
+                         recorder::ParsedMessage& latest,
+                         std::string& error)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(windowMs);
+    bool found = false;
+
+    while (!context.stopRequested() && std::chrono::steady_clock::now() < deadline)
+    {
+        const uint32_t waitMs = std::min<uint32_t>(remainingMsUntil(deadline), 100U);
+        recorder::ParsedMessage message{};
+        if (!feedbackChannel.waitForParsed(type, nextIndex, waitMs, message))
+        {
+            continue;
+        }
+
+        nextIndex = message.index + 1U;
+        latest = message;
+        found = true;
+    }
+
+    if (!found)
+    {
+        error = "No " + type + " telemetry received during sample window.";
+    }
+
+    return found;
 }
 
 class PwmFrameWriteTest final : public tests::ITestCase
@@ -98,6 +314,522 @@ public:
             return {false, error};
         }
         return {true, "Motor frame built and written successfully."};
+    }
+};
+
+class ImuCalibrationSweepTest final : public tests::ITestCase
+{
+public:
+    std::string id() const override { return "imu_calibration_sweep"; }
+    std::string name() const override { return "IMU gyro/mag calibration profile"; }
+    std::string defaultSource() const override { return "received_live"; }
+    std::vector<std::string> allowedSources() const override { return {"received_live"}; }
+
+    std::vector<tests::TestParameter> parameters() const override
+    {
+        return {
+            {"holdMs", "Static hold ms", "number", 4000.0, 500.0, 20000.0},
+            {"moveSettleMs", "Move settle ms", "number", 800.0, 100.0, 10000.0},
+            {"timeoutMs", "Timeout ms", "number", 120000.0, 10000.0, 300000.0},
+            {"repeatCount", "Repeat count", "number", 4.0, 1.0, 20.0},
+            {"stableGyroMagMs", "Stable gyro/mag ms", "number", 2000.0, 500.0, 20000.0},
+        };
+    }
+
+    tests::TestResult run(tests::TestContext& context) override
+    {
+        constexpr std::array<MotorPosition, 9U> gyroPositions = {{
+            {90.0, 90.0},
+            {90.0, 0.0},
+            {90.0, 180.0},
+            {0.0, 90.0},
+            {180.0, 90.0},
+            {0.0, 0.0},
+            {180.0, 180.0},
+            {0.0, 180.0},
+            {180.0, 0.0},
+        }};
+        constexpr std::array<MotorPosition, 33U> magPositions = {{
+            {90.0, 90.0},
+            {75.0, 104.0},
+            {60.0, 115.0},
+            {45.0, 124.0},
+            {30.0, 130.0},
+            {15.0, 124.0},
+            {0.0, 115.0},
+            {15.0, 102.0},
+            {30.0, 90.0},
+            {45.0, 76.0},
+            {60.0, 65.0},
+            {75.0, 56.0},
+            {90.0, 50.0},
+            {105.0, 56.0},
+            {120.0, 65.0},
+            {135.0, 76.0},
+            {150.0, 90.0},
+            {165.0, 102.0},
+            {180.0, 115.0},
+            {165.0, 124.0},
+            {150.0, 130.0},
+            {135.0, 124.0},
+            {120.0, 115.0},
+            {105.0, 102.0},
+            {90.0, 90.0},
+            {75.0, 76.0},
+            {60.0, 65.0},
+            {45.0, 56.0},
+            {30.0, 50.0},
+            {45.0, 62.0},
+            {60.0, 75.0},
+            {75.0, 84.0},
+            {90.0, 90.0},
+        }};
+
+        const uint32_t holdMs = static_cast<uint32_t>(context.paramNumber("holdMs", 4000.0));
+        const uint32_t moveSettleMs = static_cast<uint32_t>(context.paramNumber("moveSettleMs", 800.0));
+        const uint32_t timeoutMs = static_cast<uint32_t>(context.paramNumber("timeoutMs", 120000.0));
+        const uint32_t repeatCount = static_cast<uint32_t>(context.paramNumber("repeatCount", 4.0));
+        const uint32_t stableGyroMagMs = static_cast<uint32_t>(context.paramNumber("stableGyroMagMs", 2000.0));
+
+        auto commandChannel = context.channel(motorChannelName(context));
+        auto feedbackChannel = context.channel(feedbackChannelName(context));
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+        uint64_t nextIndex = feedbackChannel.parsedTotal();
+        recorder::ParsedMessage lastCalibration{};
+        bool sawCalibration = false;
+        std::string stageError;
+
+        const auto runStage = [&](const char* label,
+                                  const std::string& fieldName,
+                                  const auto& positions,
+                                  uint32_t stageRepeatCount,
+                                  uint32_t perPositionHoldMs) -> bool {
+            context.log(std::string("Calibration stage started: ") + label + ".");
+            for (uint32_t repeat = 0U; repeat < stageRepeatCount && std::chrono::steady_clock::now() < deadline; ++repeat)
+            {
+                for (const auto& position : positions)
+                {
+                    if (context.stopRequested() || std::chrono::steady_clock::now() >= deadline)
+                    {
+                        return false;
+                    }
+
+                    std::string error;
+                    if (!sendMotorCommand(commandChannel, position.motor1, position.motor2, error))
+                    {
+                        stageError = error;
+                        return false;
+                    }
+
+                    std::ostringstream log;
+                    log << "Calibration " << label << " motor=(" << position.motor1 << ", " << position.motor2 << ").";
+                    context.log(log.str());
+
+                    if (!sleepWithStop(context, std::min<uint32_t>(moveSettleMs, remainingMsUntil(deadline))))
+                    {
+                        return false;
+                    }
+
+                    const uint32_t waitMs = std::min<uint32_t>(perPositionHoldMs, remainingMsUntil(deadline));
+                    if (waitForCalibrationFieldDuring(context,
+                                                      feedbackChannel,
+                                                      nextIndex,
+                                                      waitMs,
+                                                      fieldName,
+                                                      lastCalibration,
+                                                      sawCalibration))
+                    {
+                        context.log(std::string("Calibration stage completed: ") + label + " " +
+                                    calibrationSummary(lastCalibration));
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+
+        (void) runStage("gyro static", "gyro", gyroPositions, 1U, holdMs);
+        if (!stageError.empty())
+        {
+            return {false, stageError};
+        }
+        if (context.stopRequested())
+        {
+            return {false, "Calibration profile stopped."};
+        }
+
+        (void) runStage("mag figure-eight sweep", "mag", magPositions, repeatCount, std::max<uint32_t>(holdMs / 3U, 700U));
+        if (!stageError.empty())
+        {
+            return {false, stageError};
+        }
+        if (context.stopRequested())
+        {
+            return {false, "Calibration profile stopped."};
+        }
+
+        for (uint32_t repeat = 0U; repeat < repeatCount && std::chrono::steady_clock::now() < deadline; ++repeat)
+        {
+            for (const auto& position : magPositions)
+            {
+                if (context.stopRequested() || std::chrono::steady_clock::now() >= deadline)
+                {
+                    break;
+                }
+
+                std::string error;
+                if (!sendMotorCommand(commandChannel, position.motor1, position.motor2, error))
+                {
+                    return {false, error};
+                }
+
+                if (!sleepWithStop(context, std::min<uint32_t>(moveSettleMs, remainingMsUntil(deadline))))
+                {
+                    return {false, "Calibration profile stopped."};
+                }
+
+                if (waitForStableCalibrationFields(context,
+                                                   feedbackChannel,
+                                                   nextIndex,
+                                                   std::min<uint32_t>(holdMs, remainingMsUntil(deadline)),
+                                                   stableGyroMagMs,
+                                                   {"gyro", "mag"},
+                                                   lastCalibration,
+                                                   sawCalibration))
+                {
+                    return {true, "BNO055 gyro/mag calibration completed and stable: " +
+                                  calibrationSummary(lastCalibration)};
+                }
+            }
+        }
+
+        if (context.stopRequested())
+        {
+            return {false, "Calibration profile stopped."};
+        }
+
+        if (!sawCalibration)
+        {
+            return {false, "No bno055CalibrationStatus telemetry received during calibration sweep."};
+        }
+
+        return {false, "Calibration profile did not reach stable gyro/mag calibration. Last status: " +
+                       calibrationSummary(lastCalibration)};
+    }
+};
+
+class ImuManualAccSystemCalibrationTest final : public tests::ITestCase
+{
+public:
+    std::string id() const override { return "imu_manual_acc_system_calibration"; }
+    std::string name() const override { return "Manual IMU acc/system calibration"; }
+    std::string defaultSource() const override { return "received_live"; }
+    std::vector<std::string> allowedSources() const override { return {"received_live"}; }
+
+    std::vector<tests::TestParameter> parameters() const override
+    {
+        return {
+            {"instructionHoldMs", "Instruction hold ms", "number", 8000.0, 1000.0, 30000.0},
+            {"timeoutMs", "Timeout ms", "number", 180000.0, 10000.0, 300000.0},
+            {"stableSystemMs", "Stable system ms", "number", 2000.0, 500.0, 20000.0},
+        };
+    }
+
+    tests::TestResult run(tests::TestContext& context) override
+    {
+        constexpr std::array<const char*, 6U> accInstructions = {{
+            "ACC: Place the IMU level and keep it still.",
+            "ACC: Rotate the whole unit so the nose/front points up; keep it still.",
+            "ACC: Rotate the whole unit so the nose/front points down; keep it still.",
+            "ACC: Put the unit on its left side; keep it still.",
+            "ACC: Put the unit on its right side; keep it still.",
+            "ACC: Turn the unit upside down; keep it still.",
+        }};
+        constexpr std::array<const char*, 4U> systemInstructions = {{
+            "SYSTEM: Slowly rotate the whole unit around yaw while keeping clear of magnetic objects.",
+            "SYSTEM: Tilt the whole unit forward and backward slowly.",
+            "SYSTEM: Tilt the whole unit left and right slowly.",
+            "SYSTEM: Return to normal mounting orientation and keep it still.",
+        }};
+
+        const uint32_t instructionHoldMs = static_cast<uint32_t>(context.paramNumber("instructionHoldMs", 8000.0));
+        const uint32_t timeoutMs = static_cast<uint32_t>(context.paramNumber("timeoutMs", 180000.0));
+        const uint32_t stableSystemMs = static_cast<uint32_t>(context.paramNumber("stableSystemMs", 2000.0));
+
+        auto feedbackChannel = context.channel(feedbackChannelName(context));
+        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
+        uint64_t nextIndex = feedbackChannel.parsedTotal();
+        recorder::ParsedMessage lastCalibration{};
+        bool sawCalibration = false;
+
+        for (const char* instruction : accInstructions)
+        {
+            if (context.stopRequested() || std::chrono::steady_clock::now() >= deadline)
+            {
+                break;
+            }
+
+            context.log(instruction);
+            if (waitForCalibrationFieldDuring(context,
+                                              feedbackChannel,
+                                              nextIndex,
+                                              std::min<uint32_t>(instructionHoldMs, remainingMsUntil(deadline)),
+                                              "acc",
+                                              lastCalibration,
+                                              sawCalibration))
+            {
+                context.log("ACC calibration completed: " + calibrationSummary(lastCalibration));
+                break;
+            }
+        }
+
+        if (context.stopRequested())
+        {
+            return {false, "Manual calibration stopped."};
+        }
+
+        if (!calibrationFieldComplete(lastCalibration, "acc"))
+        {
+            if (!sawCalibration)
+            {
+                return {false, "No bno055CalibrationStatus telemetry received during manual calibration."};
+            }
+            return {false, "ACC calibration did not reach 3. Last status: " + calibrationSummary(lastCalibration)};
+        }
+
+        for (const char* instruction : systemInstructions)
+        {
+            if (context.stopRequested() || std::chrono::steady_clock::now() >= deadline)
+            {
+                break;
+            }
+
+            context.log(instruction);
+            if (waitForStableCalibrationFields(context,
+                                               feedbackChannel,
+                                               nextIndex,
+                                               std::min<uint32_t>(instructionHoldMs, remainingMsUntil(deadline)),
+                                               stableSystemMs,
+                                               {"system"},
+                                               lastCalibration,
+                                               sawCalibration))
+            {
+                return {true, "SYSTEM calibration reached 3 and stayed stable: " +
+                              calibrationSummary(lastCalibration)};
+            }
+        }
+
+        if (context.stopRequested())
+        {
+            return {false, "Manual calibration stopped."};
+        }
+
+        return {false, "SYSTEM calibration did not reach stable 3. Last status: " +
+                       calibrationSummary(lastCalibration)};
+    }
+};
+
+class ImuAxisLimitRotationTest final : public tests::ITestCase
+{
+public:
+    std::string id() const override { return "imu_axis_limit_rotation"; }
+    std::string name() const override { return "IMU axis limit rotation check"; }
+    std::string defaultSource() const override { return "received_live"; }
+    std::vector<std::string> allowedSources() const override { return {"received_live"}; }
+
+    std::vector<tests::TestParameter> parameters() const override
+    {
+        return {
+            {"axis", "Axis 0 az 1 el 2 both", "number", 2.0, 0.0, 2.0},
+            {"minDeg", "Min command deg", "number", 0.0, 0.0, 180.0},
+            {"maxDeg", "Max command deg", "number", 180.0, 0.0, 180.0},
+            {"holdOtherMotorDeg", "Hold other motor deg", "number", 90.0, 0.0, 180.0},
+            {"settleMs", "Settle ms", "number", 1500.0, 100.0, 10000.0},
+            {"sampleWindowMs", "Sample window ms", "number", 1500.0, 100.0, 10000.0},
+            {"toleranceDeg", "Tolerance deg", "number", 20.0, 0.0, 90.0},
+        };
+    }
+
+    tests::TestResult run(tests::TestContext& context) override
+    {
+        const int axis = static_cast<int>(std::round(context.paramNumber("axis", 2.0)));
+        if (axis != 0 && axis != 1 && axis != 2)
+        {
+            return {false, "axis must be 0 for azimuth, 1 for elevation, or 2 for both."};
+        }
+
+        const double minDeg = context.paramNumber("minDeg", 0.0);
+        const double maxDeg = context.paramNumber("maxDeg", 180.0);
+        const double holdOtherMotorDeg = context.paramNumber("holdOtherMotorDeg", 90.0);
+        const uint32_t settleMs = static_cast<uint32_t>(context.paramNumber("settleMs", 1500.0));
+        const uint32_t sampleWindowMs = static_cast<uint32_t>(context.paramNumber("sampleWindowMs", 1500.0));
+        const double toleranceDeg = context.paramNumber("toleranceDeg", 20.0);
+
+        auto commandChannel = context.channel(motorChannelName(context));
+        auto feedbackChannel = context.channel(feedbackChannelName(context));
+        uint64_t nextIndex = feedbackChannel.parsedTotal();
+
+        if (axis == 0 || axis == 1)
+        {
+            return runAxisCheck(context,
+                                commandChannel,
+                                feedbackChannel,
+                                nextIndex,
+                                axis,
+                                minDeg,
+                                maxDeg,
+                                holdOtherMotorDeg,
+                                settleMs,
+                                sampleWindowMs,
+                                toleranceDeg);
+        }
+
+        const auto azimuthResult = runAxisCheck(context,
+                                               commandChannel,
+                                               feedbackChannel,
+                                               nextIndex,
+                                               0,
+                                               minDeg,
+                                               maxDeg,
+                                               holdOtherMotorDeg,
+                                               settleMs,
+                                               sampleWindowMs,
+                                               toleranceDeg);
+        if (!azimuthResult.passed)
+        {
+            return {false, "Azimuth failed: " + azimuthResult.message};
+        }
+        if (context.stopRequested())
+        {
+            return {false, "Limit test stopped."};
+        }
+
+        const auto elevationResult = runAxisCheck(context,
+                                                 commandChannel,
+                                                 feedbackChannel,
+                                                 nextIndex,
+                                                 1,
+                                                 minDeg,
+                                                 maxDeg,
+                                                 holdOtherMotorDeg,
+                                                 settleMs,
+                                                 sampleWindowMs,
+                                                 toleranceDeg);
+        if (!elevationResult.passed)
+        {
+            return {false, "Elevation failed: " + elevationResult.message};
+        }
+
+        return {true, azimuthResult.message + " | " + elevationResult.message};
+    }
+
+private:
+    static tests::TestResult runAxisCheck(tests::TestContext& context,
+                                          tests::TestChannel& commandChannel,
+                                          tests::TestChannel& feedbackChannel,
+                                          uint64_t& nextIndex,
+                                          int axis,
+                                          double minDeg,
+                                          double maxDeg,
+                                          double holdOtherMotorDeg,
+                                          uint32_t settleMs,
+                                          uint32_t sampleWindowMs,
+                                          double toleranceDeg)
+    {
+        recorder::ParsedMessage startMessage{};
+        recorder::ParsedMessage endMessage{};
+        std::string error;
+
+        if (!moveAndSample(context,
+                           commandChannel,
+                           feedbackChannel,
+                           nextIndex,
+                           axis,
+                           minDeg,
+                           holdOtherMotorDeg,
+                           settleMs,
+                           sampleWindowMs,
+                           startMessage,
+                           error))
+        {
+            return {false, error};
+        }
+
+        if (!moveAndSample(context,
+                           commandChannel,
+                           feedbackChannel,
+                           nextIndex,
+                           axis,
+                           maxDeg,
+                           holdOtherMotorDeg,
+                           settleMs,
+                           sampleWindowMs,
+                           endMessage,
+                           error))
+        {
+            return {false, error};
+        }
+
+        const std::string fieldName = axis == 0 ? "eulerX" : "eulerZ";
+        double startValue = 0.0;
+        double endValue = 0.0;
+        if (!valueOf(startMessage, fieldName, startValue, error) || !valueOf(endMessage, fieldName, endValue, error))
+        {
+            return {false, error};
+        }
+
+        const double expectedRotation = std::fabs(maxDeg - minDeg);
+        const double measuredRotation = std::fabs(wrap180(endValue - startValue));
+        const double mismatch = std::fabs(measuredRotation - expectedRotation);
+
+        std::ostringstream result;
+        result << (axis == 0 ? "Azimuth" : "Elevation")
+               << " limit rotation start=" << startValue
+               << " end=" << endValue
+               << " measured=" << measuredRotation
+               << " expected=" << expectedRotation
+               << " tolerance=" << toleranceDeg;
+
+        return {mismatch <= toleranceDeg, result.str()};
+    }
+
+    static bool moveAndSample(tests::TestContext& context,
+                              tests::TestChannel& commandChannel,
+                              tests::TestChannel& feedbackChannel,
+                              uint64_t& nextIndex,
+                              int axis,
+                              double drivenMotorDeg,
+                              double holdOtherMotorDeg,
+                              uint32_t settleMs,
+                              uint32_t sampleWindowMs,
+                              recorder::ParsedMessage& sample,
+                              std::string& error)
+    {
+        const double motor1 = axis == 0 ? drivenMotorDeg : holdOtherMotorDeg;
+        const double motor2 = axis == 0 ? holdOtherMotorDeg : drivenMotorDeg;
+
+        if (!sendMotorCommand(commandChannel, motor1, motor2, error))
+        {
+            return false;
+        }
+
+        std::ostringstream log;
+        log << "Limit test motor=(" << motor1 << ", " << motor2 << ").";
+        context.log(log.str());
+
+        if (!sleepWithStop(context, settleMs))
+        {
+            error = "Limit test stopped.";
+            return false;
+        }
+
+        return waitForLatestParsed(context,
+                                   feedbackChannel,
+                                   "bno055Telemetry",
+                                   nextIndex,
+                                   sampleWindowMs,
+                                   sample,
+                                   error);
     }
 };
 
@@ -162,110 +894,6 @@ public:
         return {false, context.stopRequested() ? "Live test stopped." : "Timed out waiting for live data."};
     }
 };
-
-class MotorCommandImuFeedbackTest final : public tests::ITestCase
-{
-public:
-    std::string id() const override { return "motor_command_imu_feedback"; }
-    std::string name() const override { return "Motor command with IMU feedback"; }
-    std::string defaultSource() const override { return "received_live"; }
-    std::vector<std::string> allowedSources() const override { return {"received_live", "received_snapshot"}; }
-
-    std::vector<tests::TestParameter> parameters() const override
-    {
-        return {
-            {"targetEulerZ", "Target Euler Z", "number", 90.0, -360.0, 360.0},
-            {"tolerance", "Tolerance", "number", 45.0, 0.0, 360.0},
-            {"timeoutMs", "Check window ms", "number", 2000.0, 100.0, 60000.0},
-            {"motor1AngleDeg", "Motor 1 angle", "number", 90.0, 0.0, 180.0},
-            {"motor2AngleDeg", "Motor 2 angle", "number", 45.0, 0.0, 180.0},
-        };
-    }
-
-    tests::TestResult run(tests::TestContext& context) override
-    {
-        const double target = context.paramNumber("targetEulerZ", 90.0);
-        const double tolerance = context.paramNumber("tolerance", 45.0);
-        const uint32_t timeoutMs = static_cast<uint32_t>(context.paramNumber("timeoutMs", 2000.0));
-        const std::string commandChannelName =
-            context.channel("motor").exists() ? "motor" : channel::DefaultChannelName;
-        const std::string feedbackChannelName =
-            context.channel("imu").exists() ? "imu" : channel::DefaultChannelName;
-        auto commandChannel = context.channel(commandChannelName);
-        auto feedbackChannel = context.channel(feedbackChannelName);
-
-        if (context.source() == "received_snapshot")
-        {
-            return checkMessages(feedbackChannel.snapshotParsed("bno055Telemetry"),
-                                 target,
-                                 tolerance,
-                                 "Received snapshot on " + feedbackChannel.name());
-        }
-
-        const uint64_t sinceIndex = feedbackChannel.parsedTotal();
-        const double motor1 = context.paramNumber("motor1AngleDeg", 90.0);
-        const double motor2 = context.paramNumber("motor2AngleDeg", 45.0);
-
-        std::string error;
-        if (!commandChannel.sendMessage("motor", {{"motor1AngleDeg", motor1}, {"motor2AngleDeg", motor2}}, error))
-        {
-            return {false, error};
-        }
-        context.log("Motor command sent on " + commandChannel.name() + ", checking BNO055 telemetry on " +
-                    feedbackChannel.name() + ".");
-        return checkLiveTelemetryWindow(context, feedbackChannel, sinceIndex, target, tolerance, timeoutMs);
-    }
-
-private:
-    static tests::TestResult checkLiveTelemetryWindow(tests::TestContext& context,
-                                                      tests::TestChannel& feedbackChannel,
-                                                      uint64_t sinceIndex,
-                                                      double target,
-                                                      double tolerance,
-                                                      uint32_t timeoutMs)
-    {
-        const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeoutMs);
-        uint64_t nextIndex = sinceIndex;
-        std::string lastMismatch = "No BNO055 telemetry received during check window.";
-
-        while (!context.stopRequested() && std::chrono::steady_clock::now() < deadline)
-        {
-            const auto now = std::chrono::steady_clock::now();
-            const auto remainingMs = static_cast<uint32_t>(
-                std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count());
-
-            recorder::ParsedMessage message{};
-            if (!feedbackChannel.waitForParsed("bno055Telemetry", nextIndex, remainingMs, message))
-            {
-                break;
-            }
-
-            nextIndex = message.index + 1U;
-            if (fieldWithin(message, "eulerZ", target, tolerance, lastMismatch))
-            {
-                return {true, "BNO055 telemetry reached target during check window."};
-            }
-        }
-
-        return {false, context.stopRequested() ? "Feedback test stopped." : lastMismatch};
-    }
-
-    static tests::TestResult checkMessages(const std::vector<recorder::ParsedMessage>& messages,
-                                           double target,
-                                           double tolerance,
-                                           const std::string& label)
-    {
-        std::string mismatch = "No BNO055 telemetry found.";
-        for (const auto& message : messages)
-        {
-            if (fieldWithin(message, "eulerZ", target, tolerance, mismatch))
-            {
-                return {true, label + " contains matching BNO055 telemetry."};
-            }
-        }
-        return {false, mismatch};
-    }
-};
 }
 
 namespace tests
@@ -275,7 +903,9 @@ std::vector<std::unique_ptr<ITestCase>> createBuiltinTests()
     std::vector<std::unique_ptr<ITestCase>> tests;
     tests.push_back(std::make_unique<PwmFrameWriteTest>());
     tests.push_back(std::make_unique<MotorFrameWriteTest>());
-    tests.push_back(std::make_unique<MotorCommandImuFeedbackTest>());
+    tests.push_back(std::make_unique<ImuCalibrationSweepTest>());
+    tests.push_back(std::make_unique<ImuManualAccSystemCalibrationTest>());
+    tests.push_back(std::make_unique<ImuAxisLimitRotationTest>());
     tests.push_back(std::make_unique<ReceivedHasDataTest>());
     tests.push_back(std::make_unique<ReceivedContainsFrameHeaderTest>());
     tests.push_back(std::make_unique<LiveReceivesDataTest>());

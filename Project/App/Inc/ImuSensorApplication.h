@@ -14,6 +14,7 @@
 
 void StartImu();
 bool ReadOneSensorSample(BNO055_Sensors_t* sample);
+bool ReadImuCalibrationStatus(Calib_status_t* calibration, bool* fullyCalibrated);
 bool SetImuReferenceFrameMode(uint8_t frameMode);
 
 

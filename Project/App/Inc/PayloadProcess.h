@@ -28,6 +28,21 @@ inline IcdMessage_t BuildBno055TelemetryMessage(const BNO055_Sensors_t* sample)
 	return message;
 }
 
+inline IcdMessage_t BuildBno055CalibrationStatusMessage(const Calib_status_t* calibration, bool fullyCalibrated)
+{
+	IcdMessage_t message = {};
+	static uint16_t CalibrationCounter = 0;
+	message.Header.TimetagMs = HAL_GetTick();
+	message.Header.Counter = CalibrationCounter++;
+	message.Header.IcdType = IcdType_Bno055CalibrationStatus;
+	message.Payload.Bno055CalibrationStatus.System = calibration->System;
+	message.Payload.Bno055CalibrationStatus.Gyro = calibration->Gyro;
+	message.Payload.Bno055CalibrationStatus.Acc = calibration->Acc;
+	message.Payload.Bno055CalibrationStatus.Mag = calibration->MAG;
+	message.Payload.Bno055CalibrationStatus.FullyCalibrated = fullyCalibrated ? 1U : 0U;
+	return message;
+}
+
 
 
 #endif /* INC_PAYLOADPROCESS_H_ */

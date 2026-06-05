@@ -40,6 +40,20 @@ inline uint8_t BuildBno055TelemetryPayload(uint32_t timetagMs,
 	return offset;
 }
 
+inline uint8_t BuildBno055CalibrationStatusPayload(uint32_t timetagMs,
+                                                   uint8_t counter,
+                                                   const Bno055CalibrationStatus_t& message,
+                                                   uint8_t* payload)
+{
+	uint8_t offset = IcdProtocol::AppendHeader(payload, timetagMs, counter, IcdType_Bno055CalibrationStatus);
+	payload[offset++] = message.System;
+	payload[offset++] = message.Gyro;
+	payload[offset++] = message.Acc;
+	payload[offset++] = message.Mag;
+	payload[offset++] = message.FullyCalibrated;
+	return offset;
+}
+
 inline uint8_t BuildImuReferenceControlPayload(uint32_t timetagMs,
                                                uint8_t counter,
                                                const ImuReferenceControl_t& message,
@@ -115,6 +129,14 @@ inline uint8_t BuildPayload(const IcdMessage_t& message, uint8_t* payload)
 		                                   message.Header.Counter,
 		                                   message.Payload.Bno055Telemetry,
 		                                   payload);
+	}
+
+	if (message.Header.IcdType == IcdType_Bno055CalibrationStatus)
+	{
+		return BuildBno055CalibrationStatusPayload(message.Header.TimetagMs,
+		                                           message.Header.Counter,
+		                                           message.Payload.Bno055CalibrationStatus,
+		                                           payload);
 	}
 
 	if (message.Header.IcdType == IcdType_ImuReferenceControl)

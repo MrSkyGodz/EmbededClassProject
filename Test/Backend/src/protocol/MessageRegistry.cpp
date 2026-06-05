@@ -10,6 +10,7 @@ constexpr uint8_t IcdType_Bno055Telemetry = 2U;
 constexpr uint8_t IcdType_ImuReferenceControl = 3U;
 constexpr uint8_t IcdType_ImuReferenceTuning = 4U;
 constexpr uint8_t IcdType_ImuReferenceStatus = 5U;
+constexpr uint8_t IcdType_Bno055CalibrationStatus = 6U;
 constexpr size_t IcdHeaderSize = 6U;
 
 void appendUint32Le(std::vector<uint8_t>& payload, uint32_t value)
@@ -103,6 +104,14 @@ MessageRegistry::MessageRegistry()
             {"motor1TargetAngleDeg", "float", 0.0, 180.0},
             {"motor2TargetAngleDeg", "float", 0.0, 180.0},
             {"reverseBranch", "uint8", 0.0, 1.0}}},
+          {"bno055CalibrationStatus",
+           IcdType_Bno055CalibrationStatus,
+           "telemetry",
+           {{"system", "uint8", 0.0, 3.0},
+            {"gyro", "uint8", 0.0, 3.0},
+            {"acc", "uint8", 0.0, 3.0},
+            {"mag", "uint8", 0.0, 3.0},
+            {"fullyCalibrated", "uint8", 0.0, 1.0}}},
       }
 {
 }
@@ -357,6 +366,21 @@ bool MessageRegistry::decodePayload(const uint8_t* payload,
         message.values["motor1TargetAngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 10U)));
         message.values["motor2TargetAngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 11U)));
         message.values["reverseBranch"] = static_cast<double>(body[2U + (sizeof(float) * 12U)]);
+        return true;
+    }
+
+    if (message.icdType == IcdType_Bno055CalibrationStatus)
+    {
+        if (bodyLength != 5U)
+        {
+            error = "invalid bno055 calibration status body length";
+            return false;
+        }
+        message.values["system"] = static_cast<double>(body[0U]);
+        message.values["gyro"] = static_cast<double>(body[1U]);
+        message.values["acc"] = static_cast<double>(body[2U]);
+        message.values["mag"] = static_cast<double>(body[3U]);
+        message.values["fullyCalibrated"] = static_cast<double>(body[4U]);
         return true;
     }
 

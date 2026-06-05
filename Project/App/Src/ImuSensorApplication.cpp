@@ -88,8 +88,32 @@ bool ReadOneSensorSample(BNO055_Sensors_t* sample)
 	return false;
 }
 
+bool ReadImuCalibrationStatus(Calib_status_t* calibration, bool* fullyCalibrated)
+{
+	if (calibration == nullptr)
+	{
+		return false;
+	}
 
+	BNO055_CalibrationRequest_t request = {};
+	request.DeviceIndex = BNO055_DEVICE_INDEX;
+	request.Calibration = calibration;
 
+	if (Bno055_Ioctl(BNO055_IOCTL_GET_CALIBRATION, &request) != BNO055_ERROR_NONE)
+	{
+		return false;
+	}
+
+	if (fullyCalibrated != nullptr)
+	{
+		*fullyCalibrated = (calibration->System == 3U) &&
+		                   (calibration->Gyro == 3U) &&
+		                   (calibration->Acc == 3U) &&
+		                   (calibration->MAG == 3U);
+	}
+
+	return true;
+}
 
 void StartImu()
 {

@@ -9,6 +9,7 @@
 namespace
 {
 constexpr uint8_t IcdType_Bno055Telemetry = 2U;
+constexpr uint8_t IcdType_Bno055CalibrationStatus = 6U;
 
 void appendUint32Le(std::vector<uint8_t>& payload, uint32_t value)
 {
@@ -96,6 +97,22 @@ size_t MockTransport::read(uint8_t* buffer, size_t bufferLength, std::string& er
 
         const auto frame = protocol::buildFrame(payload);
         for (uint8_t byte : frame.bytes)
+        {
+            rxQueue_.push(byte);
+        }
+
+        std::vector<uint8_t> calibrationPayload;
+        appendUint32Le(calibrationPayload, static_cast<uint32_t>(counter) * 20U);
+        calibrationPayload.push_back(counter);
+        calibrationPayload.push_back(IcdType_Bno055CalibrationStatus);
+        calibrationPayload.push_back(3U);
+        calibrationPayload.push_back(3U);
+        calibrationPayload.push_back(3U);
+        calibrationPayload.push_back(3U);
+        calibrationPayload.push_back(1U);
+
+        const auto calibrationFrame = protocol::buildFrame(calibrationPayload);
+        for (uint8_t byte : calibrationFrame.bytes)
         {
             rxQueue_.push(byte);
         }

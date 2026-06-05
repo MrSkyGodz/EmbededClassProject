@@ -123,6 +123,14 @@ void PublishSensorSample(IcdUartPublisher& Publisher, const BNO055_Sensors_t* sa
 	const IcdMessage_t message = BuildBno055TelemetryMessage(sample);
 	Publisher.Publish(message);
 
+	Calib_status_t calibration = {};
+	bool fullyCalibrated = false;
+	if (ReadImuCalibrationStatus(&calibration, &fullyCalibrated))
+	{
+		const IcdMessage_t calibrationMessage = BuildBno055CalibrationStatusMessage(&calibration, fullyCalibrated);
+		Publisher.Publish(calibrationMessage);
+	}
+
 	IcdMessage_t controlStatus = {};
 	if (ImuReferenceController_Update(sample, &controlStatus))
 	{
