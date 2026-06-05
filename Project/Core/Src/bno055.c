@@ -87,3 +87,20 @@ BNO055_Error_t BNO055_Init(void)
 
     return Bno055_Ioctl(BNO055_IOCTL_GET_STATUS, &BnoStatusRequest);
 }
+
+BNO055_Error_t BNO055_Recover(void)
+{
+    DrvI2c_DeviceParams_t i2cDeviceParams = {
+        .I2CIndex = g_bnoHardware.I2C.I2CIndex
+    };
+
+    if ((g_bnoHardware.IntPin.Port != NULL) && (g_bnoHardware.IntPin.Pin != 0U))
+    {
+        (void) DrvGpio_Close(&g_bnoHardware.IntPin);
+    }
+
+    (void) DrvI2c_Close(&i2cDeviceParams);
+    HAL_Delay(20U);
+
+    return BNO055_Init();
+}

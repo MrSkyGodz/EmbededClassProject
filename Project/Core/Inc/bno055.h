@@ -15,6 +15,7 @@ extern BNO055_StatusRequest_t BnoStatusRequest;
 extern BNO055_ReadRequest_t BnoReadRequest;
 
 BNO055_Error_t BNO055_Init(void);
+BNO055_Error_t BNO055_Recover(void);
 
 #ifdef __cplusplus
 }

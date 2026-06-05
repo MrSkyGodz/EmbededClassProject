@@ -19,24 +19,18 @@ constexpr float kFullTurnDeg = 360.0F;
 constexpr float kHalfTurnDeg = 180.0F;
 constexpr float kElevationMinDeg = kServoMinDeg;
 constexpr float kElevationMaxDeg = kElevationServoMaxDeg;
-constexpr float kLimitMarginDeg = 0.0F;
 constexpr float kGainMin = 0.0F;
 constexpr float kGainMax = 100.0F;
-constexpr float kMaxStepAzDeg = 10.0F;
-constexpr float kMaxStepElDeg = 10.0F;
+constexpr float kMaxStepAzDeg = 4.0F;
+constexpr float kMaxStepElDeg = 4.0F;
 constexpr float kMaxRateAzDegPerSecond = 90.0F;
 constexpr float kMaxRateElDegPerSecond = 90.0F;
-constexpr float kWorldAzimuthAtLogicalCenterDeg = 0.0F;
 constexpr float kAzimuthFeedbackDirection = 1.0F;
 constexpr float kElevationFeedbackDirection = 1.0F;
+constexpr float kFeedbackDeadbandDeg = 0.75F;
+constexpr float kFeedbackFullGyroDps = 30.0F;
+constexpr float kFeedbackHoldGyroDps = 120.0F;
 constexpr uint8_t kDefaultFrameMode = 1U;
-
-enum ControlMode : uint8_t
-{
-	ControlMode_Normal = 0U,
-	ControlMode_Flipped = 1U,
-	ControlMode_Saturated = 2U,
-};
 
 struct TuningState
 {
@@ -60,8 +54,6 @@ struct ControllerState
 	float motor2TargetAngleDeg;
 	float azimuthOutputDeg;
 	float elevationOutputDeg;
-	uint8_t reverseBranch;
-	ControlMode mode;
 	TuningState tuning;
 };
 
@@ -75,8 +67,6 @@ struct LogicalCommand
 {
 	float azimuthDeg;
 	float elevationDeg;
-	uint8_t reverseBranch;
-	ControlMode mode;
 };
 
 ControllerState g_state;
@@ -99,6 +89,11 @@ float clampFloat(float value, float minValue, float maxValue)
 float absoluteFloat(float value)
 {
 	return (value < 0.0F) ? -value : value;
+}
+
+float signFloat(float value)
+{
+	return (value < 0.0F) ? -1.0F : 1.0F;
 }
 
 float normalizeAzimuth360(float value)
@@ -126,11 +121,6 @@ float wrapDeg180(float value)
 	return wrapped;
 }
 
-float worldAzimuthToLogical(float worldAzimuthDeg)
-{
-	return kAzimuthServoCenterDeg + wrapDeg180(worldAzimuthDeg - kWorldAzimuthAtLogicalCenterDeg);
-}
-
 float rateLimit(float desired, float last, float maxRateDegPerSecond)
 {
 	const float maxStep = maxRateDegPerSecond * kControlPeriodSeconds;
@@ -145,6 +135,43 @@ AzEl readCurrentAzEl(const BNO055_Sensors_t* sample)
 		sample->Euler.Z,
 	};
 	return current;
+}
+
+float feedbackMotionScale(const BNO055_Sensors_t* sample)
+{
+	const float gyroMagnitudeDps = absoluteFloat(sample->Gyro.X) +
+	                               absoluteFloat(sample->Gyro.Y) +
+	                               absoluteFloat(sample->Gyro.Z);
+
+	if (gyroMagnitudeDps <= kFeedbackFullGyroDps)
+	{
+		return 1.0F;
+	}
+
+	if (gyroMagnitudeDps >= kFeedbackHoldGyroDps)
+	{
+		return 0.0F;
+	}
+
+	return (kFeedbackHoldGyroDps - gyroMagnitudeDps) /
+	       (kFeedbackHoldGyroDps - kFeedbackFullGyroDps);
+}
+
+float applyFeedbackDeadband(float errorDeg)
+{
+	if (absoluteFloat(errorDeg) <= kFeedbackDeadbandDeg)
+	{
+		return 0.0F;
+	}
+
+	return errorDeg - (signFloat(errorDeg) * kFeedbackDeadbandDeg);
+}
+
+float feedbackDelta(float errorDeg, float gain, float maxStepDeg, float motionScale)
+{
+	const float activeErrorDeg = applyFeedbackDeadband(errorDeg);
+	const float deltaDeg = gain * activeErrorDeg * motionScale;
+	return clampFloat(deltaDeg, -maxStepDeg, maxStepDeg);
 }
 
 float logicalToPhysicalAzimuth(float logicalAzimuthDeg)
@@ -169,77 +196,11 @@ float physicalToLogicalElevation(float physicalElevationDeg)
 
 LogicalCommand clampLogicalCommand(const LogicalCommand& command)
 {
-	LogicalCommand clamped = command;
-	clamped.azimuthDeg = clampFloat(command.azimuthDeg, kServoMinDeg, kAzimuthServoMaxDeg);
-	clamped.elevationDeg = clampFloat(command.elevationDeg, kServoMinDeg, kElevationServoMaxDeg);
+	const LogicalCommand clamped = {
+		clampFloat(command.azimuthDeg, kServoMinDeg, kAzimuthServoMaxDeg),
+		clampFloat(command.elevationDeg, kServoMinDeg, kElevationServoMaxDeg),
+	};
 	return clamped;
-}
-
-bool commandInsideLimits(const LogicalCommand& command)
-{
-	return (command.azimuthDeg >= (kServoMinDeg + kLimitMarginDeg)) &&
-	       (command.azimuthDeg <= (kAzimuthServoMaxDeg - kLimitMarginDeg)) &&
-	       (command.elevationDeg >= (kServoMinDeg + kLimitMarginDeg)) &&
-	       (command.elevationDeg <= (kElevationServoMaxDeg - kLimitMarginDeg));
-}
-
-float commandDistanceFromLast(const LogicalCommand& command)
-{
-	return absoluteFloat(command.azimuthDeg - g_state.lastLogicalAzimuthDeg) +
-	       absoluteFloat(command.elevationDeg - g_state.lastLogicalElevationDeg);
-}
-
-LogicalCommand closestToLimits(const LogicalCommand& first, const LogicalCommand& second)
-{
-	LogicalCommand firstClamped = clampLogicalCommand(first);
-	LogicalCommand secondClamped = clampLogicalCommand(second);
-	firstClamped.mode = ControlMode_Saturated;
-	secondClamped.mode = ControlMode_Saturated;
-
-	return (commandDistanceFromLast(secondClamped) < commandDistanceFromLast(firstClamped)) ?
-		secondClamped :
-		firstClamped;
-}
-
-LogicalCommand selectBaseCommand(const LogicalCommand& normal, const LogicalCommand& flipped)
-{
-	if (commandInsideLimits(normal))
-	{
-		return normal;
-	}
-
-	if (commandInsideLimits(flipped))
-	{
-		return flipped;
-	}
-
-	if (commandInsideLimits(normal))
-	{
-		return normal;
-	}
-
-	const bool preferFlipped = (g_state.mode == ControlMode_Flipped) ||
-	                           ((g_state.mode == ControlMode_Saturated) && (g_state.reverseBranch != 0U));
-	return preferFlipped ? closestToLimits(flipped, normal) : closestToLimits(normal, flipped);
-}
-
-LogicalCommand applyFeedbackCorrection(const LogicalCommand& selectedBase,
-                                       float azimuthErrorDeg,
-                                       float elevationErrorDeg)
-{
-	LogicalCommand command = selectedBase;
-	const float deltaAzimuthDeg = clampFloat(g_state.tuning.azimuthKp * azimuthErrorDeg,
-	                                         -kMaxStepAzDeg,
-	                                         kMaxStepAzDeg);
-	const float deltaElevationDeg = clampFloat(g_state.tuning.elevationKp * elevationErrorDeg,
-	                                           -kMaxStepElDeg,
-	                                           kMaxStepElDeg);
-
-	command.azimuthDeg = g_state.lastLogicalAzimuthDeg + (kAzimuthFeedbackDirection * deltaAzimuthDeg);
-	command.elevationDeg = g_state.lastLogicalElevationDeg + (kElevationFeedbackDirection * deltaElevationDeg);
-	g_state.azimuthOutputDeg = deltaAzimuthDeg;
-	g_state.elevationOutputDeg = deltaElevationDeg;
-	return clampLogicalCommand(command);
 }
 
 LogicalCommand rateLimitCommand(const LogicalCommand& command)
@@ -288,7 +249,7 @@ void fillStatusMessage(IcdMessage_t* message,
 	message->Payload.ImuReferenceStatus.Motor2AngleDeg = g_state.motor2AngleDeg;
 	message->Payload.ImuReferenceStatus.Motor1TargetAngleDeg = g_state.motor1TargetAngleDeg;
 	message->Payload.ImuReferenceStatus.Motor2TargetAngleDeg = g_state.motor2TargetAngleDeg;
-	message->Payload.ImuReferenceStatus.ReverseBranch = g_state.reverseBranch;
+	message->Payload.ImuReferenceStatus.ReverseBranch = 0U;
 }
 }
 
@@ -304,8 +265,6 @@ void ImuReferenceController_Init(void)
 	g_state.motor2AngleDeg = logicalToPhysicalElevation(g_state.lastLogicalElevationDeg);
 	g_state.motor1TargetAngleDeg = g_state.motor1AngleDeg;
 	g_state.motor2TargetAngleDeg = g_state.motor2AngleDeg;
-	g_state.reverseBranch = 0U;
-	g_state.mode = ControlMode_Normal;
 	g_state.tuning.azimuthKp = kDefaultKp;
 	g_state.tuning.azimuthKi = kDefaultKi;
 	g_state.tuning.elevationKp = kDefaultKp;
@@ -364,8 +323,6 @@ void ImuReferenceController_NotifyManualMotorCommand(float motor1Deg, float moto
 	g_state.motor1TargetAngleDeg = g_state.motor1AngleDeg;
 	g_state.motor2TargetAngleDeg = g_state.motor2AngleDeg;
 	g_state.enable = 0U;
-	g_state.reverseBranch = 0U;
-	g_state.mode = ControlMode_Normal;
 	clearOutputs();
 }
 
@@ -379,29 +336,27 @@ bool ImuReferenceController_Update(const BNO055_Sensors_t* sample, IcdMessage_t*
 	const AzEl currentAzEl = readCurrentAzEl(sample);
 	const float azimuthErrorDeg = wrapDeg180(g_state.targetAzimuthDeg - currentAzEl.azimuthDeg);
 	const float elevationErrorDeg = g_state.targetElevationDeg - currentAzEl.elevationDeg;
+	const float motionScale = feedbackMotionScale(sample);
+	const float deltaAzimuthDeg = feedbackDelta(azimuthErrorDeg,
+	                                            g_state.tuning.azimuthKp,
+	                                            kMaxStepAzDeg,
+	                                            motionScale);
+	const float deltaElevationDeg = feedbackDelta(elevationErrorDeg,
+	                                              g_state.tuning.elevationKp,
+	                                              kMaxStepElDeg,
+	                                              motionScale);
 
 	if (g_state.enable != 0U)
 	{
-		const LogicalCommand normalBase = {
-			worldAzimuthToLogical(g_state.targetAzimuthDeg),
-			g_state.targetElevationDeg,
-			0U,
-			ControlMode_Normal,
+		const LogicalCommand desired = {
+			g_state.lastLogicalAzimuthDeg + (kAzimuthFeedbackDirection * deltaAzimuthDeg),
+			g_state.lastLogicalElevationDeg + (kElevationFeedbackDirection * deltaElevationDeg),
 		};
-		const LogicalCommand flippedBase = {
-			worldAzimuthToLogical(g_state.targetAzimuthDeg + kHalfTurnDeg),
-			kElevationServoMaxDeg - g_state.targetElevationDeg,
-			1U,
-			ControlMode_Flipped,
-		};
-		const LogicalCommand selectedBase = selectBaseCommand(normalBase, flippedBase);
-		const LogicalCommand corrected = applyFeedbackCorrection(selectedBase,
-		                                                         azimuthErrorDeg,
-		                                                         elevationErrorDeg);
+		const LogicalCommand corrected = clampLogicalCommand(desired);
 		const LogicalCommand limited = rateLimitCommand(corrected);
 
-		g_state.mode = selectedBase.mode;
-		g_state.reverseBranch = selectedBase.reverseBranch;
+		g_state.azimuthOutputDeg = deltaAzimuthDeg;
+		g_state.elevationOutputDeg = deltaElevationDeg;
 		g_state.lastLogicalAzimuthDeg = limited.azimuthDeg;
 		g_state.lastLogicalElevationDeg = limited.elevationDeg;
 		g_state.motor1TargetAngleDeg = logicalToPhysicalAzimuth(corrected.azimuthDeg);
@@ -414,7 +369,6 @@ bool ImuReferenceController_Update(const BNO055_Sensors_t* sample, IcdMessage_t*
 	{
 		g_state.motor1TargetAngleDeg = g_state.motor1AngleDeg;
 		g_state.motor2TargetAngleDeg = g_state.motor2AngleDeg;
-		g_state.reverseBranch = (g_state.mode == ControlMode_Flipped) ? 1U : 0U;
 		clearOutputs();
 	}
 
