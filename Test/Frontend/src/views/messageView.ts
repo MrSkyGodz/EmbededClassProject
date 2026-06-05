@@ -70,6 +70,9 @@ function defaultValue(name: string, min: number, max: number): number {
   if (name === "enable") return 1;
   if (name === "frameMode") return 1;
   if (name === "azimuthKp") return 1;
+  if (name === "azimuthKi") return 0;
   if (name === "elevationKp") return 1;
+  if (name === "elevationKi") return 0;
+  if (name === "resetIntegrator") return 1;
   return Math.round((min + max) / 2);
 }

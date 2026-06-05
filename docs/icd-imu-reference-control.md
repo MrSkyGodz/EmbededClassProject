@@ -11,6 +11,7 @@ This feature controls a two-servo gimbal from an IMU-referenced azimuth/elevatio
 - Motor2 drives elevation directly.
 - Both servos are treated as `0..180` position actuators.
 - The controller does not use encoder feedback. It uses BNO055 feedback for actual look direction and the last sent motor command as the motor-position estimate.
+- `reverseBranch` is kept only for wire/UI compatibility and is always reported as `0`.
 
 ## ICD Types
 
@@ -20,8 +21,8 @@ All ICD payloads use little-endian floats and avoid C struct padding on the wire
 | --- | --- | --- | --- |
 | 2 | `bno055Telemetry` | telemetry | `float eulerX`, `float eulerY`, `float eulerZ`, `float gyroX`, `float gyroY`, `float gyroZ` |
 | 3 | `imuReferenceControl` | command | `float targetAzimuthDeg`, `float targetElevationDeg`, `uint8 enable`, `uint8 frameMode` |
-| 4 | `imuReferenceTuning` | command | `float azimuthKp`, `float elevationKp` |
-| 5 | `imuReferenceStatus` | telemetry | `uint8 enable`, `uint8 frameMode`, target/current/error/output/motor floats |
+| 4 | `imuReferenceTuning` | command | `float azimuthKp`, `float azimuthKi`, `float elevationKp`, `float elevationKi`, `uint8 resetIntegrator` |
+| 5 | `imuReferenceStatus` | telemetry | `uint8 enable`, `uint8 frameMode`, target/current/error/output/motor floats, legacy target motor floats, `uint8 reverseBranch` |
 | 6 | `bno055CalibrationStatus` | telemetry | `uint8 system`, `uint8 gyro`, `uint8 acc`, `uint8 mag`, `uint8 fullyCalibrated` |
 
 `frameMode` values:
@@ -56,6 +57,8 @@ The controller runs once per IMU sample, currently every 100 ms.
 - Final command is converted to physical motor direction, then sent to the motors.
 - If a correction would move outside `0..180`, it is clamped.
 - `imuReferenceTuning.azimuthKp` and `elevationKp` are active correction gains.
+- `azimuthKi` and `elevationKi` are accepted for wire compatibility but are ignored.
+- `resetIntegrator` clears legacy output fields; there is no integrator in this controller.
 - A manual `motor` command updates the stored last command and disables IMU reference control.
 
 ## IMU Recovery
@@ -74,15 +77,18 @@ Status fields:
 - `azimuthErrorDeg` and `elevationErrorDeg` report target-minus-feedback error.
 - `azimuthPiOutputDeg` and `elevationPiOutputDeg` are legacy field names; they now report the applied feedback correction.
 - `motor1AngleDeg` and `motor2AngleDeg` report the last physical servo commands.
+- `motor1TargetAngleDeg` and `motor2TargetAngleDeg` are kept for wire/UI compatibility and match the last physical servo commands.
+- `reverseBranch` is always `0`.
 
 ## Test Flow
 
 1. Open the Test backend/frontend.
-2. Send `imuReferenceTuning` with conservative values such as `1.0, 1.0`.
+2. Send `imuReferenceTuning` with conservative values such as `1.0, 0.0, 1.0, 0.0, 1`.
 3. Send `imuReferenceControl` with `enable=1` and `frameMode=1`.
 4. Watch `bno055Telemetry` and `imuReferenceStatus`; `currentAzimuthDeg/currentElevationDeg` should match `eulerX/eulerZ`.
-5. Drive targets near servo limits and verify motor commands clamp.
-6. Send a manual `motor` command before manual motor testing. This disables IMU reference control and updates the controller command estimate.
+5. Verify that `reverseBranch` remains `0` for all targets.
+6. Drive targets near servo limits and verify motor commands clamp.
+7. Send a manual `motor` command before manual motor testing. This disables IMU reference control and updates the controller command estimate.
 
 Hardware test cards:
 

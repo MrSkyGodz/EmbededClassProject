@@ -95,14 +95,17 @@ protected:
 		}
 		else if (receivedCommand.Header.IcdType == IcdType_ImuReferenceTuning)
 		{
-			const uint8_t expectedLength = sizeof(float) * 2U;
+			const uint8_t expectedLength = (sizeof(float) * 4U) + 1U;
 			if (messagePayloadLength != expectedLength)
 			{
 				return;
 			}
 
 			receivedCommand.Payload.ImuReferenceTuning.AzimuthKp = readFloat(messagePayload);
-			receivedCommand.Payload.ImuReferenceTuning.ElevationKp = readFloat(messagePayload + sizeof(float));
+			receivedCommand.Payload.ImuReferenceTuning.AzimuthKi = readFloat(messagePayload + sizeof(float));
+			receivedCommand.Payload.ImuReferenceTuning.ElevationKp = readFloat(messagePayload + (sizeof(float) * 2U));
+			receivedCommand.Payload.ImuReferenceTuning.ElevationKi = readFloat(messagePayload + (sizeof(float) * 3U));
+			receivedCommand.Payload.ImuReferenceTuning.ResetIntegrator = messagePayload[sizeof(float) * 4U];
 		}
 		else
 		{

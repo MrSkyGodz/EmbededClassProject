@@ -74,7 +74,10 @@ inline uint8_t BuildImuReferenceTuningPayload(uint32_t timetagMs,
 {
 	uint8_t offset = IcdProtocol::AppendHeader(payload, timetagMs, counter, IcdType_ImuReferenceTuning);
 	IcdProtocol::AppendFloat(payload, &offset, message.AzimuthKp);
+	IcdProtocol::AppendFloat(payload, &offset, message.AzimuthKi);
 	IcdProtocol::AppendFloat(payload, &offset, message.ElevationKp);
+	IcdProtocol::AppendFloat(payload, &offset, message.ElevationKi);
+	payload[offset++] = message.ResetIntegrator;
 	return offset;
 }
 
@@ -96,6 +99,9 @@ inline uint8_t BuildImuReferenceStatusPayload(uint32_t timetagMs,
 	IcdProtocol::AppendFloat(payload, &offset, message.ElevationPiOutputDeg);
 	IcdProtocol::AppendFloat(payload, &offset, message.Motor1AngleDeg);
 	IcdProtocol::AppendFloat(payload, &offset, message.Motor2AngleDeg);
+	IcdProtocol::AppendFloat(payload, &offset, message.Motor1TargetAngleDeg);
+	IcdProtocol::AppendFloat(payload, &offset, message.Motor2TargetAngleDeg);
+	payload[offset++] = message.ReverseBranch;
 	return offset;
 }
 
