@@ -72,10 +72,7 @@ typedef struct
 typedef struct
 {
 	float AzimuthKp;
-	float AzimuthKi;
 	float ElevationKp;
-	float ElevationKi;
-	uint8_t ResetIntegrator;
 }ImuReferenceTuning_t;
 
 typedef struct
@@ -92,9 +89,6 @@ typedef struct
 	float ElevationPiOutputDeg;
 	float Motor1AngleDeg;
 	float Motor2AngleDeg;
-	float Motor1TargetAngleDeg;
-	float Motor2TargetAngleDeg;
-	uint8_t ReverseBranch;
 }ImuReferenceStatus_t;
 
 typedef union

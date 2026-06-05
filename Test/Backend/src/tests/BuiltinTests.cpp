@@ -118,10 +118,7 @@ bool sendImuReferenceTuning(tests::TestChannel& channel,
 {
     return channel.sendMessage("imuReferenceTuning",
                                {{"azimuthKp", azimuthKp},
-                                {"azimuthKi", 0.0},
-                                {"elevationKp", elevationKp},
-                                {"elevationKi", 0.0},
-                                {"resetIntegrator", 1.0}},
+                                {"elevationKp", elevationKp}},
                                error);
 }
 

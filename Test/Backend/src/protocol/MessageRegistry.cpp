@@ -82,10 +82,7 @@ MessageRegistry::MessageRegistry()
            IcdType_ImuReferenceTuning,
            "command",
            {{"azimuthKp", "float", 0.0, 100.0},
-            {"azimuthKi", "float", 0.0, 100.0},
-            {"elevationKp", "float", 0.0, 100.0},
-            {"elevationKi", "float", 0.0, 100.0},
-            {"resetIntegrator", "uint8", 0.0, 1.0}}},
+            {"elevationKp", "float", 0.0, 100.0}}},
           {"imuReferenceStatus",
            IcdType_ImuReferenceStatus,
            "telemetry",
@@ -100,10 +97,7 @@ MessageRegistry::MessageRegistry()
             {"azimuthPiOutputDeg", "float", -360.0, 360.0},
             {"elevationPiOutputDeg", "float", -360.0, 360.0},
             {"motor1AngleDeg", "float", 0.0, 180.0},
-            {"motor2AngleDeg", "float", 0.0, 180.0},
-            {"motor1TargetAngleDeg", "float", 0.0, 180.0},
-            {"motor2TargetAngleDeg", "float", 0.0, 180.0},
-            {"reverseBranch", "uint8", 0.0, 1.0}}},
+            {"motor2AngleDeg", "float", 0.0, 180.0}}},
           {"bno055CalibrationStatus",
            IcdType_Bno055CalibrationStatus,
            "telemetry",
@@ -213,35 +207,23 @@ bool MessageRegistry::buildPayload(const std::string& type,
     if (type == "imuReferenceTuning")
     {
         double azimuthKp = 0.0;
-        double azimuthKi = 0.0;
         double elevationKp = 0.0;
-        double elevationKi = 0.0;
-        double resetIntegrator = 0.0;
         if (!findValue(values, "azimuthKp", azimuthKp) ||
-            !findValue(values, "azimuthKi", azimuthKi) ||
-            !findValue(values, "elevationKp", elevationKp) ||
-            !findValue(values, "elevationKi", elevationKi) ||
-            !findValue(values, "resetIntegrator", resetIntegrator))
+            !findValue(values, "elevationKp", elevationKp))
         {
-            error = "azimuth/elevation PI gains and resetIntegrator are required";
+            error = "azimuthKp and elevationKp are required";
             return false;
         }
 
         if (azimuthKp < 0.0 || azimuthKp > 100.0 ||
-            azimuthKi < 0.0 || azimuthKi > 100.0 ||
-            elevationKp < 0.0 || elevationKp > 100.0 ||
-            elevationKi < 0.0 || elevationKi > 100.0 ||
-            resetIntegrator < 0.0 || resetIntegrator > 1.0)
+            elevationKp < 0.0 || elevationKp > 100.0)
         {
             error = "imuReferenceTuning values are out of range";
             return false;
         }
 
         appendFloat(payload, static_cast<float>(azimuthKp));
-        appendFloat(payload, static_cast<float>(azimuthKi));
         appendFloat(payload, static_cast<float>(elevationKp));
-        appendFloat(payload, static_cast<float>(elevationKi));
-        payload.push_back(static_cast<uint8_t>(resetIntegrator));
         return true;
     }
 
@@ -331,22 +313,19 @@ bool MessageRegistry::decodePayload(const uint8_t* payload,
 
     if (message.icdType == IcdType_ImuReferenceTuning)
     {
-        if (bodyLength != (sizeof(float) * 4U) + 1U)
+        if (bodyLength != sizeof(float) * 2U)
         {
             error = "invalid imu reference tuning body length";
             return false;
         }
         message.values["azimuthKp"] = static_cast<double>(readFloat(body));
-        message.values["azimuthKi"] = static_cast<double>(readFloat(body + sizeof(float)));
-        message.values["elevationKp"] = static_cast<double>(readFloat(body + (sizeof(float) * 2U)));
-        message.values["elevationKi"] = static_cast<double>(readFloat(body + (sizeof(float) * 3U)));
-        message.values["resetIntegrator"] = static_cast<double>(body[sizeof(float) * 4U]);
+        message.values["elevationKp"] = static_cast<double>(readFloat(body + sizeof(float)));
         return true;
     }
 
     if (message.icdType == IcdType_ImuReferenceStatus)
     {
-        if (bodyLength != (sizeof(float) * 12U) + 3U)
+        if (bodyLength != (sizeof(float) * 10U) + 2U)
         {
             error = "invalid imu reference status body length";
             return false;
@@ -363,9 +342,6 @@ bool MessageRegistry::decodePayload(const uint8_t* payload,
         message.values["elevationPiOutputDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 7U)));
         message.values["motor1AngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 8U)));
         message.values["motor2AngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 9U)));
-        message.values["motor1TargetAngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 10U)));
-        message.values["motor2TargetAngleDeg"] = static_cast<double>(readFloat(body + 2U + (sizeof(float) * 11U)));
-        message.values["reverseBranch"] = static_cast<double>(body[2U + (sizeof(float) * 12U)]);
         return true;
     }
 

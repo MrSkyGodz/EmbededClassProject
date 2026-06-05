@@ -32,8 +32,6 @@ struct ControllerState
 	float lastLogicalElevationDeg;
 	float motor1AngleDeg;
 	float motor2AngleDeg;
-	float motor1TargetAngleDeg;
-	float motor2TargetAngleDeg;
 	float azimuthKp;
 	float elevationKp;
 	float azimuthOutputDeg;
@@ -149,9 +147,6 @@ void fillStatusMessage(IcdMessage_t* message,
 	message->Payload.ImuReferenceStatus.ElevationPiOutputDeg = g_state.elevationOutputDeg;
 	message->Payload.ImuReferenceStatus.Motor1AngleDeg = g_state.motor1AngleDeg;
 	message->Payload.ImuReferenceStatus.Motor2AngleDeg = g_state.motor2AngleDeg;
-	message->Payload.ImuReferenceStatus.Motor1TargetAngleDeg = g_state.motor1TargetAngleDeg;
-	message->Payload.ImuReferenceStatus.Motor2TargetAngleDeg = g_state.motor2TargetAngleDeg;
-	message->Payload.ImuReferenceStatus.ReverseBranch = 0U;
 }
 }
 
@@ -165,8 +160,6 @@ void ImuReferenceController_Init(void)
 	g_state.lastLogicalElevationDeg = kElevationServoCenterDeg;
 	g_state.motor1AngleDeg = logicalToPhysicalAzimuth(g_state.lastLogicalAzimuthDeg);
 	g_state.motor2AngleDeg = logicalToPhysicalElevation(g_state.lastLogicalElevationDeg);
-	g_state.motor1TargetAngleDeg = g_state.motor1AngleDeg;
-	g_state.motor2TargetAngleDeg = g_state.motor2AngleDeg;
 	g_state.azimuthKp = kDefaultKp;
 	g_state.elevationKp = kDefaultKp;
 	clearOutputs();
@@ -216,8 +209,6 @@ void ImuReferenceController_NotifyManualMotorCommand(float motor1Deg, float moto
 	g_state.motor2AngleDeg = clampFloat(motor2Deg, kServoMinDeg, kElevationServoMaxDeg);
 	g_state.lastLogicalAzimuthDeg = physicalToLogicalAzimuth(g_state.motor1AngleDeg);
 	g_state.lastLogicalElevationDeg = physicalToLogicalElevation(g_state.motor2AngleDeg);
-	g_state.motor1TargetAngleDeg = g_state.motor1AngleDeg;
-	g_state.motor2TargetAngleDeg = g_state.motor2AngleDeg;
 	g_state.enable = 0U;
 	clearOutputs();
 }
@@ -251,14 +242,10 @@ bool ImuReferenceController_Update(const BNO055_Sensors_t* sample, IcdMessage_t*
 		                                             kElevationServoMaxDeg);
 		g_state.motor1AngleDeg = logicalToPhysicalAzimuth(g_state.lastLogicalAzimuthDeg);
 		g_state.motor2AngleDeg = logicalToPhysicalElevation(g_state.lastLogicalElevationDeg);
-		g_state.motor1TargetAngleDeg = g_state.motor1AngleDeg;
-		g_state.motor2TargetAngleDeg = g_state.motor2AngleDeg;
 		SetMotorPositionReference(g_state.motor1AngleDeg, g_state.motor2AngleDeg);
 	}
 	else
 	{
-		g_state.motor1TargetAngleDeg = g_state.motor1AngleDeg;
-		g_state.motor2TargetAngleDeg = g_state.motor2AngleDeg;
 		clearOutputs();
 	}
 
